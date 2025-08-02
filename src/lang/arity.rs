@@ -1,14 +1,153 @@
 use crate::lang::Type;
 
+type Index = usize;
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct MultiIndex {
+    pub el: Index,
+    pub next: Option<Box<MultiIndex>>,
+}
+
+impl MultiIndex {
+    pub fn contains(&self, i: usize) -> bool {
+        self.el == i || self.next.as_ref().is_some_and(|f| f.contains(i))
+    }
+
+    pub fn insert(&mut self, i: usize) {
+        match self.el.cmp(&i) {
+            std::cmp::Ordering::Greater => {
+                let prev_el = self.el;
+                self.el = i;
+                self.insert(prev_el);
+            }
+            std::cmp::Ordering::Equal => {}
+            std::cmp::Ordering::Less => {
+                match &mut self.next {
+                    Some(n) => n.insert(i),
+                    None => {
+                        self.next = Some(Box::new(Self { el: i, next: None }));
+                    }
+                };
+            }
+        }
+    }
+
+    pub fn iter(&self) -> MultiIndexIter<'_> {
+        MultiIndexIter::new(Some(self))
+    }
+
+    pub fn iter_rest(&self) -> MultiIndexIter<'_> {
+        MultiIndexIter::new(self.next.as_deref())
+    }
+}
+
+impl From<(usize, usize)> for MultiIndex {
+    fn from(value: (usize, usize)) -> Self {
+        Self {
+            el: value.0,
+            next: Some(Box::new(Self {
+                el: value.1,
+                next: None,
+            })),
+        }
+    }
+}
+
+impl From<usize> for MultiIndex {
+    fn from(value: usize) -> Self {
+        Self {
+            el: value,
+            next: None,
+        }
+    }
+}
+
+pub struct MultiIndexIter<'a> {
+    next: Option<&'a MultiIndex>,
+}
+
+impl<'a> MultiIndexIter<'a> {
+    pub fn new(target: Option<&'a MultiIndex>) -> Self {
+        Self { next: target }
+    }
+}
+
+impl Iterator for MultiIndexIter<'_> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next.take() {
+            Some(c) => {
+                let res = c.el;
+                self.next = c.next.as_deref();
+                Some(res)
+            }
+            None => None,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum ResultantType {
+    Normal(Type),
+    Dependent(MultiIndex),
+}
+
+impl From<Type> for ResultantType {
+    fn from(value: Type) -> Self {
+        Self::Normal(value)
+    }
+}
+
+impl ResultantType {
+    pub fn stringify(&self) -> String {
+        match self {
+            ResultantType::Normal(t) => t.stringify().into(),
+            ResultantType::Dependent(d) => {
+                let mut str = String::new();
+                for t in d.iter() {
+                    if !str.is_empty() {
+                        str.push('|');
+                    }
+                    str.push_str(&format!("{t}"));
+                }
+                str
+            }
+        }
+    }
+
+    pub fn references(&self, i: usize) -> bool {
+        match self {
+            ResultantType::Normal(_) => false,
+            ResultantType::Dependent(d) => d.contains(i),
+        }
+    }
+
+    pub fn union(&self, other: &Self) -> Result<Self, ()> {
+        match (self, other) {
+            (ResultantType::Normal(a), ResultantType::Normal(b)) => Ok(a.union(*b).into()),
+            (ResultantType::Dependent(_), ResultantType::Normal(n))
+            | (ResultantType::Normal(n), ResultantType::Dependent(_)) => Ok(n.to_owned().into()),
+            (ResultantType::Dependent(s), ResultantType::Dependent(other)) => Ok(
+                ResultantType::Dependent(other.iter().fold(s.clone(), |mut a, f| {
+                    a.insert(f);
+                    a
+                })),
+            ),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Arity {
     pub pops: Vec<Type>,
-    pub pushes: Vec<Type>,
+    pub pushes: Vec<ResultantType>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ArityCombineError {
     DifferingSizes,
+    DifferentInputs,
 }
 
 impl Arity {
@@ -21,6 +160,11 @@ impl Arity {
 
     pub fn size(&self) -> (usize, usize) {
         (self.pops.len(), self.pushes.len())
+    }
+
+    pub fn is_neutral(&self) -> bool {
+        let size = self.size();
+        size.0 == size.1
     }
 
     pub fn literal(r: Type) -> Self {
@@ -47,26 +191,80 @@ impl Arity {
         r
     }
 
-    pub fn number_binary() -> Self {
-        Self::binary(Type::Number, Type::Number, Type::Number)
+    pub fn generic_1(pop_count: usize, res1: MultiIndex) -> Self {
+        let mut res = Arity::noop();
+        for _ in 0..pop_count {
+            res.pop(Type::Unknown);
+        }
+        res.pushes.push(ResultantType::Dependent(res1));
+        res
     }
 
-    pub fn any_binary() -> Self {
-        Self::binary(Type::Unknown, Type::Unknown, Type::Unknown)
+    pub fn generic_2(pop_count: usize, res1: MultiIndex, res2: MultiIndex) -> Self {
+        let mut res = Arity::noop();
+        for _ in 0..pop_count {
+            res.pop(Type::Unknown);
+        }
+        res.pushes.push(ResultantType::Dependent(res1));
+        res.pushes.push(ResultantType::Dependent(res2));
+        res
+    }
+
+    pub fn generic_3(
+        pop_count: usize,
+        res1: MultiIndex,
+        res2: MultiIndex,
+        res3: MultiIndex,
+    ) -> Self {
+        let mut res = Arity::noop();
+        for _ in 0..pop_count {
+            res.pop(Type::Unknown);
+        }
+        res.pushes.push(ResultantType::Dependent(res1));
+        res.pushes.push(ResultantType::Dependent(res2));
+        res.pushes.push(ResultantType::Dependent(res3));
+        res
+    }
+
+    pub fn number_binary() -> Self {
+        Self::binary(Type::Number, Type::Number, Type::Number)
     }
 
     pub fn number_unary() -> Self {
         Self::unary(Type::Number, Type::Number)
     }
 
-    pub fn pop(&mut self, term: Type) {
-        if self.pushes.pop().is_none() {
-            self.pops.push(term);
-        };
+    pub fn pop(&mut self, term: Type) -> ResultantType {
+        match (self.pushes.pop(), term) {
+            (Some(ResultantType::Normal(t)), _) => t.into(),
+            (None, _) => {
+                self.pops.push(term);
+                ResultantType::Dependent((self.pops.len() - 1).into())
+            }
+            (Some(ResultantType::Dependent(i)), Type::Unknown) => ResultantType::Dependent(i),
+            (Some(ResultantType::Dependent(i)), _) => {
+                for x in i.iter() {
+                    if term.assignable_to(&self.pops[x]) {
+                        for push in self.pushes.iter_mut() {
+                            if push.references(x) {
+                                *push = ResultantType::Normal(term);
+                            }
+                        }
+                        self.pops[x] = term;
+                    } else {
+                        todo!("Handle incompatible types")
+                    }
+                }
+                term.into()
+            }
+        }
     }
 
-    pub fn push(&mut self, term: Type) {
-        self.pushes.push(term);
+    pub fn push<T>(&mut self, term: T)
+    where
+        T: Into<ResultantType>,
+    {
+        self.pushes.push(term.into());
     }
 
     pub fn with_pop(mut self, other: Type) -> Arity {
@@ -80,14 +278,33 @@ impl Arity {
     }
 
     pub fn serial(&mut self, other: &Arity) {
-        other.pops.iter().for_each(|f| self.pop(f.to_owned()));
-        other.pushes.iter().for_each(|f| self.push(f.to_owned()));
+        let mapped_types = other
+            .pops
+            .iter()
+            .map(|f| self.pop(f.to_owned()))
+            .collect::<Vec<ResultantType>>();
+
+        other.pushes.iter().for_each(|f| match f {
+            ResultantType::Normal(t) => self.push(*t),
+            ResultantType::Dependent(x) => {
+                let mut first = mapped_types[x.el].clone();
+                let others = x.iter_rest().map(|f| &mapped_types[f]);
+                for other in others {
+                    first = first.union(other).unwrap();
+                }
+                self.push(first);
+            }
+        });
     }
 
     pub fn stringify(&self) -> String {
         let mut res = String::new();
-        for pop in self.pops.iter().rev() {
-            res.push_str(pop.stringify());
+        for (i, pop) in self.pops.iter().enumerate().rev() {
+            if pop == &Type::Unknown && self.pushes.iter().any(|f| f.references(i)) {
+                res.push_str(&format!("{i}"));
+            } else {
+                res.push_str(pop.stringify());
+            }
             res.push(' ');
         }
 
@@ -95,38 +312,50 @@ impl Arity {
 
         for push in self.pushes.iter() {
             res.push(' ');
-            res.push_str(push.stringify());
+            res.push_str(&push.stringify());
         }
 
         res
     }
 
-    pub fn parallel(left: &Arity, other: &Arity) -> Result<Arity, ArityCombineError> {
-        if left.size() != other.size() {
+    pub fn parallel(raw_left: &Arity, raw_right: &Arity) -> Result<Arity, ArityCombineError> {
+        let mut left = raw_left.clone();
+        let mut right = raw_right.clone();
+        while left.pops.len() < right.pops.len() {
+            let dep = left.pop(Type::Unknown);
+            left.push(dep);
+            if left.pushes.len() > 10 {
+                panic!("Left got too long");
+            }
+        }
+
+        while right.pops.len() < left.pops.len() {
+            let dep = right.pop(Type::Unknown);
+            right.push(dep);
+            if right.pushes.len() > 10 {
+                panic!("Right got too long");
+            }
+        }
+
+        if left.size() != right.size() {
             return Err(ArityCombineError::DifferingSizes);
         }
         let mut res = Arity::noop();
 
         for (i, t) in left.pops.iter().enumerate() {
-            let other_type = other.pops[i];
-            if t.assignable_to(&other_type) {
-                res.pop(other_type);
-            } else if other_type.assignable_to(t) {
-                res.pop(*t);
-            } else {
-                res.pop(Type::Unknown);
-            }
+            let Some(expected_type) = right.pops[i].inter(*t) else {
+                return Err(ArityCombineError::DifferentInputs);
+            };
+            res.pop(expected_type);
         }
 
         for (i, t) in left.pushes.iter().enumerate() {
-            let other_type = other.pushes[i];
-            if t.assignable_to(&other_type) {
-                res.push(*t);
-            } else if other_type.assignable_to(t) {
-                res.push(other_type);
-            } else {
-                res.push(Type::Unknown);
-            }
+            match t.union(&right.pushes[i]) {
+                Ok(t) => res.push(t),
+                Err(_) => {
+                    todo!("Handle union error");
+                }
+            };
         }
 
         Ok(res)

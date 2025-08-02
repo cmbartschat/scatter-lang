@@ -88,21 +88,81 @@ mod tests {
 
     #[test]
     fn loop_1() {
-        assert_fn_arity("fn: {[(dup) 1 -]}", "u - n");
+        assert_fn_arity("fn: {[(dup) 1 -]}", "n - n");
     }
 
     #[test]
     fn loop_2() {
-        assert_fn_arity("fn: {[(dup) swap]}", "u u - u u");
+        assert_fn_arity("fn: {[(dup) swap]}", "1 0 - 0|1 0|1");
     }
 
     #[test]
     fn loop_3() {
-        assert_fn_arity("fn: {[(dup) swap]}", "u u - u u");
+        assert_fn_arity("fn: {[(dup) swap]}", "1 0 - 0|1 0|1");
     }
 
     #[test]
     fn loop_4() {
         assert_fn_err("fn: {[(dup) 1]}", AnalysisError::IndefiniteSize);
+    }
+
+    #[test]
+    fn test_intrinsic_or() {
+        assert_fn_arity("fn: {||}", "1 0 - 0|1");
+    }
+
+    #[test]
+    fn test_intrinsic_and() {
+        assert_fn_arity("fn: {&&}", "1 0 - 0|1");
+    }
+
+    #[test]
+    fn test_intrinsic_swap() {
+        assert_fn_arity("fn: {swap}", "1 0 - 0 1");
+    }
+
+    #[test]
+    fn test_intrinsic_dup() {
+        assert_fn_arity("fn: {dup}", "0 - 0 0");
+    }
+
+    #[test]
+    fn test_intrinsic_over() {
+        assert_fn_arity("fn: {over}", "1 0 - 1 0 1");
+    }
+
+    #[test]
+    fn test_intrinsic_rot() {
+        assert_fn_arity("fn: {rot}", "2 1 0 - 1 0 2");
+    }
+
+    #[test]
+    fn test_intrinsic_drop() {
+        assert_fn_arity("fn: {drop}", "u -");
+    }
+
+    #[test]
+    fn test_generic_1() {
+        assert_fn_arity("fn: {swap swap}", "1 0 - 1 0");
+    }
+
+    #[test]
+    fn test_generic_2() {
+        assert_fn_arity("fn: {swap +}", "n n - n");
+    }
+
+    #[test]
+    fn test_generic_3() {
+        assert_fn_arity("fn: {swap ++}", "n 0 - 0 n");
+    }
+
+    #[test]
+    fn test_generic_4() {
+        assert_fn_arity("fn: {dup ++}", "n - n n");
+    }
+
+    #[test]
+    fn test_generic_5() {
+        assert_fn_arity("fn: {1 dup}", "- n n");
     }
 }

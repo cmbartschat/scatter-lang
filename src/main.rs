@@ -29,6 +29,9 @@ fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
         Some(Err(AnalysisError::Pending)) => {
             println!("{}: not resolved", label)
         }
+        Some(Err(AnalysisError::IncompatibleTypes)) => {
+            println!("{}: incompatible types", label)
+        }
         None => println!("{}: not resolved", label),
     }
 }

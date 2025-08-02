@@ -8,6 +8,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnalysisError {
     IndefiniteSize,
+    IncompatibleTypes,
     Pending,
 }
 
@@ -83,6 +84,9 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
                             Err(ArityCombineError::DifferingSizes) => {
                                 return Err(AnalysisError::IndefiniteSize);
                             }
+                            Err(ArityCombineError::DifferentInputs) => {
+                                return Err(AnalysisError::IncompatibleTypes);
+                            }
                         }
                     } else {
                         combined = Some(arity);
@@ -107,33 +111,49 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
                 Arity::noop()
             };
 
-            let mut main_arity = analyze_block(arities, &loop_v.body)?;
-
-            if let Some(post) = &loop_v.post_condition {
-                main_arity.serial(&analyze_condition(arities, post)?);
+            if !pre_arity.is_neutral() {
+                return BlockAnalysisResult::Err(AnalysisError::IndefiniteSize);
             }
 
-            let mut arity = pre_arity.clone().with_serial(&main_arity);
+            let main_arity = if let Some(post) = &loop_v.post_condition {
+                analyze_block(arities, &loop_v.body)?
+                    .with_serial(&analyze_condition(arities, post)?)
+            } else {
+                analyze_block(arities, &loop_v.body)?
+            };
 
-            let alternates = vec![
-                arity.clone().with_serial(&pre_arity),
-                arity
-                    .clone()
-                    .with_serial(&pre_arity)
-                    .with_serial(&main_arity),
-            ];
+            if !main_arity.is_neutral() {
+                return BlockAnalysisResult::Err(AnalysisError::IndefiniteSize);
+            }
 
+            let mut arity = pre_arity.clone();
+
+            let mut alternates = vec![];
+
+            arity.serial(&main_arity);
+            alternates.push(arity.clone());
+
+            arity.serial(&pre_arity);
+            alternates.push(arity.clone());
+
+            arity.serial(&main_arity);
+            alternates.push(arity.clone());
+
+            arity.serial(&pre_arity);
+            alternates.push(arity.clone());
+
+            arity.serial(&main_arity);
             for alt in alternates {
-                let res = Arity::parallel(&arity, &alt);
-
-                arity = match res {
+                arity = match Arity::parallel(&arity, &alt) {
                     Ok(n) => n,
                     Err(ArityCombineError::DifferingSizes) => {
                         return Err(AnalysisError::IndefiniteSize);
                     }
+                    Err(ArityCombineError::DifferentInputs) => {
+                        return Err(AnalysisError::IncompatibleTypes);
+                    }
                 }
             }
-
             Ok(arity)
         }
     }
