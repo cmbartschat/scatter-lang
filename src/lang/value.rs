@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, fmt::Display};
 
 #[derive(Clone, PartialEq)]
 pub enum Value {
@@ -54,10 +54,19 @@ impl From<&str> for Value {
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::String(s) => s.fmt(f),
-            Self::Number(s) => s.fmt(f),
+            Self::String(s) => Debug::fmt(s, f),
+            Self::Number(s) => Display::fmt(s, f),
             Self::Bool(true) => f.write_str("true"),
             Self::Bool(false) => f.write_str("false"),
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String(s) => Display::fmt(s, f),
+            _ => Debug::fmt(&self, f),
         }
     }
 }

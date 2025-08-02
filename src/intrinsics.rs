@@ -32,6 +32,11 @@ fn modulo(i: &mut Interpreter) -> InterpreterResult {
     i.push(a % b)
 }
 
+fn pow(i: &mut Interpreter) -> InterpreterResult {
+    let (a, b) = i.take2_numbers()?;
+    i.push(a.powf(b))
+}
+
 fn or(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2()?;
     i.push(if a.is_truthy() { a } else { b })
@@ -99,6 +104,11 @@ fn equals(i: &mut Interpreter) -> InterpreterResult {
     }
 }
 
+fn print(i: &mut Interpreter) -> InterpreterResult {
+    println!("{}", i.take()?);
+    Ok(())
+}
+
 pub fn get_intrinsic(name: &str) -> Option<&'static Intrinsic> {
     get_intrinsics().get(name)
 }
@@ -112,6 +122,7 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ("*", Arity::number_binary(), times),
         ("/", Arity::number_binary(), divide),
         ("%", Arity::number_binary(), modulo),
+        ("**", Arity::number_binary(), pow),
         ("||", Arity::generic_1(2, (0, 1).into()), or),
         ("&&", Arity::generic_1(2, (0, 1).into()), and),
         ("swap", Arity::generic_2(2, 0.into(), 1.into()), swap),
@@ -127,6 +138,7 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
             rot,
         ),
         ("drop", Arity::in_out(1, 0), drop),
+        ("print", Arity::in_out(1, 0), print),
         (
             ">",
             Arity::binary(Type::Number, Type::Number, Type::Bool),
