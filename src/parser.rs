@@ -7,7 +7,7 @@ use crate::{
 
 type Tokens = Peekable<IntoIter<Token>>;
 
-type ParseResult<T> = Result<T, &'static str>;
+pub type ParseResult<T> = Result<T, &'static str>;
 
 enum BlockEndSymbol {
     CurlyClose,
@@ -194,6 +194,6 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
 }
 
 pub fn parse(source: &str) -> ParseResult<Module> {
-    let tokens = tokenize(source);
+    let tokens = tokenize(source)?;
     parse_module(&mut tokens.into_iter().peekable())
 }

@@ -1,4 +1,7 @@
-use crate::lang::{Symbol, Token, Value};
+use crate::{
+    lang::{Symbol, Token, Value},
+    parser::ParseResult,
+};
 
 fn clear_and_push_word(tokens: &mut Vec<Token>, word: &mut String) {
     match word.parse::<f64>() {
@@ -21,58 +24,109 @@ fn do_symbol(tokens: &mut Vec<Token>, word: &mut String, symbol: Symbol) {
     tokens.push(Token::Symbol(symbol));
 }
 
-pub fn tokenize(source: &str) -> Vec<Token> {
+struct StringParseState {
+    word: String,
+    escape_next: bool,
+}
+
+struct NormalParseState {
+    word: String,
+}
+
+enum ParseState {
+    String(StringParseState),
+    Normal(NormalParseState),
+    LineComment,
+}
+
+impl ParseState {
+    pub fn normal() -> Self {
+        Self::Normal(NormalParseState {
+            word: String::new(),
+        })
+    }
+
+    pub fn string() -> Self {
+        Self::String(StringParseState {
+            word: String::new(),
+            escape_next: false,
+        })
+    }
+
+    pub fn comment() -> Self {
+        Self::LineComment
+    }
+}
+
+pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
     let mut tokens = vec![];
+    let mut state = ParseState::normal();
+    let mut chars = source.chars().peekable();
 
-    let mut word = String::new();
-
-    let mut is_string = false;
-    let mut escape_next = false;
-
-    for char in source.chars() {
-        if is_string {
-            if escape_next {
-                word.push(char);
-                escape_next = false;
-            } else {
+    while let Some(char) = chars.next() {
+        match state {
+            ParseState::String(ref mut s) => {
+                let escape_next = &mut s.escape_next;
+                let word = &mut s.word;
+                if *escape_next {
+                    word.push(char);
+                    *escape_next = false;
+                } else {
+                    match char {
+                        '"' => {
+                            tokens.push(Token::Literal(Value::String(word.clone())));
+                            state = ParseState::normal();
+                        }
+                        '\\' => {
+                            s.escape_next = true;
+                        }
+                        _ => {
+                            word.push(char);
+                        }
+                    }
+                }
+                continue;
+            }
+            ParseState::Normal(ref mut s) => {
+                let word = &mut s.word;
                 match char {
                     '"' => {
-                        tokens.push(Token::Literal(Value::String(word.clone())));
-                        word.clear();
-                        is_string = false;
+                        clear_and_push_word(&mut tokens, word);
+                        state = ParseState::string();
                     }
-                    '\\' => {
-                        escape_next = true;
+                    '/' if chars.peek() == Some(&'/') => {
+                        state = ParseState::comment();
                     }
-                    _ => {
-                        word.push(char);
+                    ':' => do_symbol(&mut tokens, word, Symbol::Colon),
+                    '{' => do_symbol(&mut tokens, word, Symbol::CurlyOpen),
+                    '}' => do_symbol(&mut tokens, word, Symbol::CurlyClose),
+                    '(' => do_symbol(&mut tokens, word, Symbol::ParenOpen),
+                    ')' => do_symbol(&mut tokens, word, Symbol::ParenClose),
+                    '[' => do_symbol(&mut tokens, word, Symbol::SquareOpen),
+                    ']' => do_symbol(&mut tokens, word, Symbol::SquareClose),
+                    ' ' | '\n' => {
+                        clear_and_push_word(&mut tokens, word);
+                    }
+                    c => {
+                        word.push(c);
                     }
                 }
             }
-            continue;
-        }
-        match char {
-            '"' => {
-                clear_and_push_word(&mut tokens, &mut word);
-                is_string = true;
+            ParseState::LineComment => {
+                if char == '\n' {
+                    state = ParseState::normal();
+                }
             }
-            ':' => do_symbol(&mut tokens, &mut word, Symbol::Colon),
-            '{' => do_symbol(&mut tokens, &mut word, Symbol::CurlyOpen),
-            '}' => do_symbol(&mut tokens, &mut word, Symbol::CurlyClose),
-            '(' => do_symbol(&mut tokens, &mut word, Symbol::ParenOpen),
-            ')' => do_symbol(&mut tokens, &mut word, Symbol::ParenClose),
-            '[' => do_symbol(&mut tokens, &mut word, Symbol::SquareOpen),
-            ']' => do_symbol(&mut tokens, &mut word, Symbol::SquareClose),
-            ' ' | '\n' => {
-                clear_and_push_word(&mut tokens, &mut word);
-            }
-            c => {
-                word.push(c);
-            }
-        }
+        };
     }
 
-    clear_and_push_word(&mut tokens, &mut word);
+    match &mut state {
+        ParseState::LineComment => {}
+        ParseState::String(_) => return Err("Unbounded string"),
+        ParseState::Normal(s) => {
+            clear_and_push_word(&mut tokens, &mut s.word);
+        }
+    };
 
-    tokens
+    Ok(tokens)
 }

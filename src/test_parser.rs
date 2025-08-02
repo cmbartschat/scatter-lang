@@ -244,4 +244,23 @@ mod tests {
         let result = parse(code).unwrap();
         assert_eq!(result, ast);
     }
+
+    #[test]
+    fn comments() {
+        let code = r#"
+        1
+        // comment
+2 // comment 2
+3
+        "#;
+
+        let ast = Module {
+            functions: vec![],
+            body: Block {
+                terms: vec![1.into(), 2.into(), 3.into()],
+            },
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
 }
