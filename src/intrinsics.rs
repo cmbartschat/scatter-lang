@@ -109,6 +109,16 @@ fn print(i: &mut Interpreter) -> InterpreterResult {
     Ok(())
 }
 
+fn assert(i: &mut Interpreter) -> InterpreterResult {
+    let message = i.take()?;
+    if !i.take()?.is_truthy() {
+        eprintln!("Assertion failed: {}", message);
+        Err("Assertion failed")
+    } else {
+        Ok(())
+    }
+}
+
 pub fn get_intrinsic(name: &str) -> Option<&'static Intrinsic> {
     get_intrinsics().get(name)
 }
@@ -139,6 +149,11 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ),
         ("drop", Arity::in_out(1, 0), drop),
         ("print", Arity::in_out(1, 0), print),
+        (
+            "assert",
+            Arity::noop().with_pop(Type::String).with_pop(Type::Unknown),
+            assert,
+        ),
         (
             ">",
             Arity::binary(Type::Number, Type::Number, Type::Bool),
