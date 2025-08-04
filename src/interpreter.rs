@@ -45,6 +45,13 @@ impl Interpreter {
         }
     }
 
+    pub fn take_string(&mut self) -> Result<String, &'static str> {
+        match self.take()? {
+            Value::String(v) => Ok(v),
+            _ => Err("Expected string on top of stack"),
+        }
+    }
+
     pub fn push<T>(&mut self, v: T) -> InterpreterResult
     where
         Value: From<T>,

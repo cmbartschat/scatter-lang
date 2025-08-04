@@ -95,12 +95,30 @@ fn increment(i: &mut Interpreter) -> InterpreterResult {
     i.push(v + 1f64)
 }
 
+fn substring(i: &mut Interpreter) -> InterpreterResult {
+    let (start, end) = i.take2_numbers()?;
+    let original = i.take_string()?;
+    let start = (start as usize).min(original.len()).max(0);
+    let end = (end as usize).min(original.len()).max(0);
+    i.push(&original[start..end])
+}
+
+fn join(i: &mut Interpreter) -> InterpreterResult {
+    let (first, second) = i.take2()?;
+    i.push(format!("{first}{second}").as_str())
+}
+
+fn length(i: &mut Interpreter) -> InterpreterResult {
+    let s = i.take_string()?;
+    i.push(s.len() as f64)
+}
+
 fn equals(i: &mut Interpreter) -> InterpreterResult {
     match i.take2()? {
         (Value::Number(a), Value::Number(b)) => i.push(a == b),
         (Value::String(a), Value::String(b)) => i.push(a == b),
         (Value::Bool(a), Value::Bool(b)) => i.push(a == b),
-        _ => Err("Invalid types for ="),
+        _ => Err("Mismatched types cannot be compared with =="),
     }
 }
 
@@ -149,6 +167,17 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ),
         ("drop", Arity::in_out(1, 0), drop),
         ("print", Arity::in_out(1, 0), print),
+        (
+            "substring",
+            Arity::binary(Type::Number, Type::Number, Type::String).with_pop(Type::String),
+            substring,
+        ),
+        (
+            "join",
+            Arity::binary(Type::Unknown, Type::Unknown, Type::String),
+            join,
+        ),
+        ("length", Arity::unary(Type::String, Type::Number), length),
         (
             "assert",
             Arity::noop().with_pop(Type::String).with_pop(Type::Unknown),

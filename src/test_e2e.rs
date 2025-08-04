@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::intrinsics::get_intrinsics;
     use crate::lang::Value;
     use crate::{interpreter::Interpreter, parser::parse};
 
@@ -10,11 +11,25 @@ mod tests {
         ctx.stack
     }
 
+    static E2E_TESTS: &str = include_str!("../examples/e2e.sl");
+
     #[test]
-    fn math() {
-        assert_eq!(
-            interpret_str(r##"1 1 + 0 "hello" 0 -3 -3 - 0 =="##),
-            vec![2.into(), 0.into(), "hello".into(), 0.into(), true.into()]
-        )
+    fn e2e() {
+        assert_eq!(interpret_str(E2E_TESTS), vec![]);
+    }
+
+    #[test]
+    fn exhaustive() {
+        for i in get_intrinsics() {
+            if i.0 == "assert" || i.0 == "print" {
+                continue;
+            }
+            let pattern = format!("\"{}\" start_suite", i.0);
+            assert!(
+                E2E_TESTS.contains(&pattern),
+                "Should include testing for {}",
+                i.0
+            );
+        }
     }
 }
