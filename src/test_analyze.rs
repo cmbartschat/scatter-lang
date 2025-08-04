@@ -87,6 +87,97 @@ mod tests {
     }
 
     #[test]
+    fn branch_5() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    (1) true
+    (dup) - - - -
+    (drop drop drop)
+  }
+}"#,
+            "- b",
+        );
+    }
+
+    #[test]
+    fn branch_6() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    (0) true
+    (0) - - - -
+    (0)
+  }
+}"#,
+            "-",
+        );
+    }
+
+    #[test]
+    fn branch_7() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    (0) true
+    (1) "hi"
+    (0)
+  }
+}"#,
+            "- s",
+        );
+    }
+
+    #[test]
+    fn branch_8() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    (dup) true
+    (1) "hi"
+    (0)
+  }
+}"#,
+            "0 - 0 u",
+        );
+    }
+
+    #[test]
+    fn branch_9() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    (1 1 -) true
+    (1) "hi"
+    (0)
+  }
+}"#,
+            "- u",
+        );
+    }
+
+    #[test]
+    fn branch_10() {
+        assert_fn_err(
+            r#"
+fn: {
+  {
+    (1 1 -) true
+    (0) "hi"
+    (0)
+    (1 1 -) false
+  }
+}"#,
+            AnalysisError::IndefiniteSize,
+        );
+    }
+
+    #[test]
     fn loop_1() {
         assert_fn_arity("fn: {[(dup) 1 -]}", "n - n");
     }
@@ -164,5 +255,93 @@ mod tests {
     #[test]
     fn test_generic_5() {
         assert_fn_arity("fn: {1 dup}", "- n n");
+    }
+
+    #[test]
+    fn test_generic_6() {
+        assert_fn_arity(
+            r#"
+fn: {
+  ==
+  {
+    ()  "pass " join
+    (1) "fail " join
+  }
+}
+     "#,
+            "u u u - s",
+        );
+    }
+
+    #[test]
+    fn test_generic_7() {
+        assert_fn_arity(
+            r#"
+fn: {
+  swap ++ swap
+}
+     "#,
+            "n 0 - n 0",
+        );
+    }
+
+    #[test]
+    fn test_generic_8() {
+        assert_fn_arity(
+            r#"
+fail: {
+  swap ++ swap
+}
+
+fn: {
+  ==
+  {
+    ()  "pass " join
+    (1) "fail " join fail
+  }
+}
+     "#,
+            "n u u u - n s",
+        );
+    }
+
+    #[test]
+    fn test_generic_9() {
+        assert_fn_arity(
+            r#"
+fail: {
+  swap ++ swap
+}
+
+fn: {
+  ==
+  {
+    (0)  "pass " join
+    (1) "fail " join fail
+  }
+}
+     "#,
+            "n u u - n s",
+        );
+    }
+
+    #[test]
+    fn test_generic_10() {
+        assert_fn_arity(
+            r#"
+fail: {
+  swap ++ swap
+}
+
+fn: {
+  1
+  {
+    ()  "pass " join
+    (1) "fail " join fail
+  }
+}
+     "#,
+            "n u - n s",
+        );
     }
 }

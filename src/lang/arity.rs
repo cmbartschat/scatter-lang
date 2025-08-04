@@ -318,23 +318,23 @@ impl Arity {
         res
     }
 
+    pub fn extend_pops(&mut self) {
+        self.pops.push(Type::Unknown);
+        self.pushes
+            .insert(0, ResultantType::Dependent((self.pops.len() - 1).into()))
+    }
+
     pub fn parallel(raw_left: &Arity, raw_right: &Arity) -> Result<Arity, ArityCombineError> {
         let mut left = raw_left.clone();
         let mut right = raw_right.clone();
-        while left.pops.len() < right.pops.len() {
-            let dep = left.pop(Type::Unknown);
-            left.push(dep);
-            if left.pushes.len() > 10 {
-                panic!("Left got too long");
-            }
+        let left_pops = right.pops.len().saturating_sub(left.pops.len());
+        let right_pops = left.pops.len().saturating_sub(right.pops.len());
+        for _ in 0..left_pops {
+            left.extend_pops();
         }
 
-        while right.pops.len() < left.pops.len() {
-            let dep = right.pop(Type::Unknown);
-            right.push(dep);
-            if right.pushes.len() > 10 {
-                panic!("Right got too long");
-            }
+        for _ in 0..right_pops {
+            right.extend_pops();
         }
 
         if left.size() != right.size() {

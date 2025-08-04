@@ -61,7 +61,24 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
         Term::Branch(branch) => {
             let mut running = Arity::noop();
 
-            let mut combined = None;
+            let mut combined: Option<Arity> = None;
+            let mut add_termination = |a: Arity| -> Result<(), AnalysisError> {
+                combined = Some(if let Some(before) = combined.take() {
+                    match Arity::parallel(&before, &a) {
+                        Ok(n) => n,
+                        Err(ArityCombineError::DifferingSizes) => {
+                            return Err(AnalysisError::IndefiniteSize);
+                        }
+                        Err(ArityCombineError::DifferentInputs) => {
+                            return Err(AnalysisError::IncompatibleTypes);
+                        }
+                    }
+                } else {
+                    a
+                });
+
+                Ok(())
+            };
 
             for arm in branch.arms.iter() {
                 let condition_arity = analyze_condition(arities, &arm.0)?;
@@ -76,33 +93,17 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
                 if possible {
                     let block_arity = analyze_block(arities, &arm.1)?;
                     let arity = running.clone().with_serial(&block_arity);
-                    if let Some(before) = combined.take() {
-                        match Arity::parallel(&before, &arity) {
-                            Ok(n) => {
-                                combined = Some(n);
-                            }
-                            Err(ArityCombineError::DifferingSizes) => {
-                                return Err(AnalysisError::IndefiniteSize);
-                            }
-                            Err(ArityCombineError::DifferentInputs) => {
-                                return Err(AnalysisError::IncompatibleTypes);
-                            }
-                        }
-                    } else {
-                        combined = Some(arity);
-                    }
+                    add_termination(arity)?;
                 }
 
                 if last_arm {
-                    break;
+                    return Ok(combined.unwrap());
                 }
             }
 
-            if let Some(a) = combined {
-                Ok(a)
-            } else {
-                Ok(Arity::noop())
-            }
+            add_termination(running)?;
+
+            Ok(combined.unwrap())
         }
         Term::Loop(loop_v) => {
             let pre_arity = if let Some(pre) = &loop_v.pre_condition {
