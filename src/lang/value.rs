@@ -51,6 +51,12 @@ impl From<&str> for Value {
     }
 }
 
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        value.as_str().into()
+    }
+}
+
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

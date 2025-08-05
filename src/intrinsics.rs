@@ -127,6 +127,11 @@ fn print(i: &mut Interpreter) -> InterpreterResult {
     Ok(())
 }
 
+fn readline(i: &mut Interpreter) -> InterpreterResult {
+    let val = i.readline()?;
+    i.push(val)
+}
+
 fn assert(i: &mut Interpreter) -> InterpreterResult {
     let message = i.take()?;
     if !i.take()?.is_truthy() {
@@ -167,6 +172,7 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ),
         ("drop", Arity::in_out(1, 0), drop),
         ("print", Arity::in_out(1, 0), print),
+        ("readline", Arity::noop().with_push(Type::String), readline),
         (
             "substring",
             Arity::binary(Type::Number, Type::Number, Type::String).with_pop(Type::String),

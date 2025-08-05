@@ -1,4 +1,8 @@
-use std::{collections::HashMap, ops::Not};
+use std::{
+    collections::HashMap,
+    io::{BufRead, StdinLock},
+    ops::Not,
+};
 
 use crate::{
     intrinsics::get_intrinsic,
@@ -12,6 +16,7 @@ pub type Stack = Vec<Value>;
 pub struct Interpreter {
     pub stack: Stack,
     pub functions: HashMap<String, Function>,
+    input: Option<StdinLock<'static>>,
 }
 
 impl Interpreter {
@@ -19,6 +24,30 @@ impl Interpreter {
         Self {
             stack: vec![],
             functions: HashMap::new(),
+            input: None,
+        }
+    }
+    pub fn enable_stdin(&mut self) {
+        if self.input.is_none() {
+            self.input = Some(std::io::stdin().lock());
+        }
+    }
+
+    pub fn disable_stdin(&mut self) {
+        self.input = None;
+    }
+
+    pub fn readline(&mut self) -> Result<String, &'static str> {
+        match &mut self.input {
+            Some(e) => {
+                let mut line = String::new();
+                e.read_line(&mut line).map_err(|_| "read_line failed")?;
+                if line.ends_with('\n') {
+                    line.pop();
+                }
+                Ok(line)
+            }
+            None => Err("Cannot read line while stdin is not attached"),
         }
     }
 

@@ -49,7 +49,10 @@ impl Repl {
             report_arity("<body>", Some(&analysis.body_arity));
             Ok(())
         } else {
-            self.ctx.load(&ast)
+            self.ctx.enable_stdin();
+            self.ctx.load(&ast)?;
+            self.ctx.disable_stdin();
+            Ok(())
         }
     }
 

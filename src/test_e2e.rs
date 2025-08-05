@@ -18,10 +18,12 @@ mod tests {
         assert_eq!(interpret_str(E2E_TESTS), vec![]);
     }
 
+    static SKIPPED_INTRINSICS: [&str; 3] = ["assert", "print", "readline"];
+
     #[test]
     fn exhaustive() {
         for i in get_intrinsics() {
-            if i.0 == "assert" || i.0 == "print" {
+            if SKIPPED_INTRINSICS.contains(&i.0.as_str()) {
                 continue;
             }
             let pattern = format!("\"{}\" start_suite", i.0);
