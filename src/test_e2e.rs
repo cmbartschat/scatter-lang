@@ -22,15 +22,15 @@ mod tests {
 
     #[test]
     fn exhaustive() {
-        for i in get_intrinsics() {
-            if SKIPPED_INTRINSICS.contains(&i.0.as_str()) {
+        for (name, _) in get_intrinsics().iter() {
+            if SKIPPED_INTRINSICS.contains(&name.as_str()) {
                 continue;
             }
-            let pattern = format!("\"{}\" start_suite", i.0);
+            let pattern = format!("\"{}\" start_suite", name);
             assert!(
                 E2E_TESTS.contains(&pattern),
                 "Should include testing for {}",
-                i.0
+                name
             );
         }
     }

@@ -51,10 +51,12 @@ fn swap(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2()?;
     i.push2(b, a)
 }
+
 fn dup(i: &mut Interpreter) -> InterpreterResult {
     let v = i.take()?;
     i.push2(v.clone(), v)
 }
+
 fn over(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2()?;
     i.push3(a.clone(), b, a)
@@ -142,11 +144,28 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
     }
 }
 
-pub fn get_intrinsic(name: &str) -> Option<&'static Intrinsic> {
+pub fn get_intrinsic(name: &str) -> Option<&'static IntrinsicData> {
     get_intrinsics().get(name)
 }
 
-type Intrinsics = HashMap<String, Intrinsic>;
+pub struct IntrinsicData {
+    pub arity: Arity,
+    pub func: Intrinsic,
+}
+
+impl From<(&'static str, Arity, Intrinsic)> for IntrinsicData {
+    fn from(value: (&'static str, Arity, Intrinsic)) -> Self {
+        IntrinsicData {
+            arity: value.1,
+            func: value.2,
+        }
+    }
+}
+
+static N: Type = Type::Number;
+static S: Type = Type::String;
+static B: Type = Type::Bool;
+static U: Type = Type::Unknown;
 
 pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
     vec![
@@ -156,70 +175,39 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ("/", Arity::number_binary(), divide),
         ("%", Arity::number_binary(), modulo),
         ("**", Arity::number_binary(), pow),
-        ("||", Arity::generic_1(2, (0, 1).into()), or),
-        ("&&", Arity::generic_1(2, (0, 1).into()), and),
-        ("swap", Arity::generic_2(2, 0.into(), 1.into()), swap),
-        ("dup", Arity::generic_2(1, 0.into(), 0.into()), dup),
-        (
-            "over",
-            Arity::generic_3(2, 1.into(), 0.into(), 1.into()),
-            over,
-        ),
-        (
-            "rot",
-            Arity::generic_3(3, 1.into(), 0.into(), 2.into()),
-            rot,
-        ),
+        ("||", Arity::generic_1(2, (0, 1)), or),
+        ("&&", Arity::generic_1(2, (0, 1)), and),
+        ("swap", Arity::generic_2(2, 0, 1), swap),
+        ("dup", Arity::generic_2(1, 0, 0), dup),
+        ("over", Arity::generic_3(2, 1, 0, 1), over),
+        ("rot", Arity::generic_3(3, 1, 0, 2), rot),
         ("drop", Arity::in_out(1, 0), drop),
         ("print", Arity::in_out(1, 0), print),
-        ("readline", Arity::noop().with_push(Type::String), readline),
-        (
-            "substring",
-            Arity::binary(Type::Number, Type::Number, Type::String).with_pop(Type::String),
-            substring,
-        ),
-        (
-            "join",
-            Arity::binary(Type::Unknown, Type::Unknown, Type::String),
-            join,
-        ),
-        ("length", Arity::unary(Type::String, Type::Number), length),
-        (
-            "assert",
-            Arity::noop().with_pop(Type::String).with_pop(Type::Unknown),
-            assert,
-        ),
-        (
-            ">",
-            Arity::binary(Type::Number, Type::Number, Type::Bool),
-            greater,
-        ),
-        (
-            "<",
-            Arity::binary(Type::Number, Type::Number, Type::Bool),
-            less,
-        ),
-        ("!", Arity::unary(Type::Unknown, Type::Bool), not),
+        ("readline", Arity::noop().with_push(S), readline),
+        ("substring", Arity::binary(N, N, S).with_pop(S), substring),
+        ("join", Arity::binary(U, U, S), join),
+        ("length", Arity::unary(S, N), length),
+        ("assert", Arity::noop().with_pop(S).with_pop(U), assert),
+        (">", Arity::binary(N, N, B), greater),
+        ("<", Arity::binary(N, N, B), less),
+        ("!", Arity::unary(U, B), not),
         ("--", Arity::number_unary(), decrement),
         ("++", Arity::number_unary(), increment),
-        (
-            "==",
-            Arity::binary(Type::Unknown, Type::Unknown, Type::Bool),
-            equals,
-        ),
+        ("==", Arity::binary(U, U, B), equals),
     ]
 }
 
-static INTRINSICS: OnceLock<HashMap<String, Intrinsic>> = OnceLock::new();
+type IntrinsicsData = HashMap<String, IntrinsicData>;
+static INTRINSICS_DATA: OnceLock<IntrinsicsData> = OnceLock::new();
 
-fn new_intrinsics() -> Intrinsics {
-    let mut i = HashMap::<String, Intrinsic>::new();
-    for (name, _, intrinsic) in get_intrinsic_data() {
-        i.insert(name.into(), intrinsic);
+fn init_intrinsics_data() -> HashMap<String, IntrinsicData> {
+    let mut i = HashMap::<String, IntrinsicData>::new();
+    for d in get_intrinsic_data() {
+        i.insert(d.0.into(), d.into());
     }
     i
 }
 
-pub fn get_intrinsics() -> &'static HashMap<String, Intrinsic> {
-    INTRINSICS.get_or_init(new_intrinsics)
+pub fn get_intrinsics() -> &'static HashMap<String, IntrinsicData> {
+    INTRINSICS_DATA.get_or_init(init_intrinsics_data)
 }

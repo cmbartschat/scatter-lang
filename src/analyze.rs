@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    intrinsics::get_intrinsic_data,
+    intrinsics::get_intrinsic,
     lang::{Arity, ArityCombineError, Block, Module, Term, Type, Value},
 };
 
@@ -49,8 +49,8 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
             Value::Bool(_) => Arity::literal(Type::Bool),
         }),
         Term::Name(n) => {
-            if let Some(a) = get_intrinsic_data().iter().find(|f| f.0 == n) {
-                return Ok(a.1.clone());
+            if let Some(a) = get_intrinsic(n) {
+                return Ok(a.arity.clone());
             }
             match arities.get(n) {
                 Some(Ok(a)) => Ok(a.clone()),

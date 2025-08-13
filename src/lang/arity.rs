@@ -191,38 +191,45 @@ impl Arity {
         r
     }
 
-    pub fn generic_1(pop_count: usize, res1: MultiIndex) -> Self {
+    pub fn generic_1<T>(pop_count: usize, res1: T) -> Self
+    where
+        T: Into<MultiIndex>,
+    {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
             res.pop(Type::Unknown);
         }
-        res.pushes.push(ResultantType::Dependent(res1));
+        res.pushes.push(ResultantType::Dependent(res1.into()));
         res
     }
 
-    pub fn generic_2(pop_count: usize, res1: MultiIndex, res2: MultiIndex) -> Self {
+    pub fn generic_2<T1, T2>(pop_count: usize, res1: T1, res2: T2) -> Self
+    where
+        T1: Into<MultiIndex>,
+        T2: Into<MultiIndex>,
+    {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
             res.pop(Type::Unknown);
         }
-        res.pushes.push(ResultantType::Dependent(res1));
-        res.pushes.push(ResultantType::Dependent(res2));
+        res.pushes.push(ResultantType::Dependent(res1.into()));
+        res.pushes.push(ResultantType::Dependent(res2.into()));
         res
     }
 
-    pub fn generic_3(
-        pop_count: usize,
-        res1: MultiIndex,
-        res2: MultiIndex,
-        res3: MultiIndex,
-    ) -> Self {
+    pub fn generic_3<T1, T2, T3>(pop_count: usize, res1: T1, res2: T2, res3: T3) -> Self
+    where
+        T1: Into<MultiIndex>,
+        T2: Into<MultiIndex>,
+        T3: Into<MultiIndex>,
+    {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
             res.pop(Type::Unknown);
         }
-        res.pushes.push(ResultantType::Dependent(res1));
-        res.pushes.push(ResultantType::Dependent(res2));
-        res.pushes.push(ResultantType::Dependent(res3));
+        res.pushes.push(ResultantType::Dependent(res1.into()));
+        res.pushes.push(ResultantType::Dependent(res2.into()));
+        res.pushes.push(ResultantType::Dependent(res3.into()));
         res
     }
 

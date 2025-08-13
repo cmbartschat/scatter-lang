@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    intrinsics::get_intrinsic,
+    intrinsics::{IntrinsicData, get_intrinsic},
     lang::{Block, Branch, Function, Loop, Module, Term, Value},
 };
 
@@ -154,8 +154,8 @@ impl Interpreter {
     }
 
     fn evaluate_name(&mut self, name: &str) -> InterpreterResult {
-        if let Some(intrinsic) = get_intrinsic(name) {
-            return intrinsic(self);
+        if let Some(IntrinsicData { func, .. }) = get_intrinsic(name) {
+            return func(self);
         };
         let Some(function) = self.lookup_name(name) else {
             eprintln!("Unsupported: {}", name);
