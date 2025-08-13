@@ -99,7 +99,7 @@ fn substring(i: &mut Interpreter) -> InterpreterResult {
     let (start, end) = i.take2_numbers()?;
     let original = i.take_string()?;
     let start = (start as usize).min(original.len()).max(0);
-    let end = (end as usize).min(original.len()).max(0);
+    let end = (end as usize).min(original.len()).max(start);
     i.push(&original[start..end])
 }
 
