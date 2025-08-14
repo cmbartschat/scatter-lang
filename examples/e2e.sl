@@ -125,6 +125,7 @@ end_suite
 "join" start_suite
 "hello " "world" join "hello world" should_equal
 1 2 3 join join "123" should_equal
+true "/" false join join "true/false" should_equal
 end_suite
 
 "substring" start_suite

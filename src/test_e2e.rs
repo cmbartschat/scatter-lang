@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::intrinsics::get_intrinsics;
+    use crate::intrinsics::{get_c_name, get_intrinsics};
     use crate::lang::Value;
     use crate::{interpreter::Interpreter, parser::parse};
 
@@ -32,6 +32,20 @@ mod tests {
                 "Should include testing for {}",
                 name
             );
+        }
+    }
+
+    #[test]
+    fn intrinsics_symbols() {
+        for (name, _) in get_intrinsics().iter() {
+            let c_name = get_c_name(name);
+            for c in c_name.chars() {
+                assert!(
+                    matches!(c, '0'..='9' | 'a'..='z' | '_'),
+                    "c_name: {} should not include special characters",
+                    c_name
+                );
+            }
         }
     }
 }

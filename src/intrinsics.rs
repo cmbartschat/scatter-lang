@@ -211,3 +211,23 @@ fn init_intrinsics_data() -> HashMap<String, IntrinsicData> {
 pub fn get_intrinsics() -> &'static HashMap<String, IntrinsicData> {
     INTRINSICS_DATA.get_or_init(init_intrinsics_data)
 }
+
+pub fn get_c_name(name: &str) -> &str {
+    match name {
+        "+" => "plus",
+        "-" => "minus",
+        "*" => "times",
+        "/" => "divide",
+        "%" => "modulo",
+        "**" => "pow_i",
+        "||" => "or_i",
+        "&&" => "and_i",
+        ">" => "greater",
+        "<" => "less",
+        "!" => "not",
+        "--" => "decrement",
+        "++" => "increment",
+        "==" => "equals",
+        _ => name,
+    }
+}
