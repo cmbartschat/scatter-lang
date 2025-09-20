@@ -8,7 +8,7 @@ use crate::{
 
 static DEFS: &str = include_str!("./c.h");
 
-fn maybe_mangle(v: &str) -> Cow<str> {
+fn maybe_mangle<'a>(v: &'a str) -> Cow<'a, str> {
     if get_intrinsic(v).is_some() {
         Cow::Borrowed(get_c_name(v))
     } else {

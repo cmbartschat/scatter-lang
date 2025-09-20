@@ -30,7 +30,7 @@ impl Type {
         if self.assignable_to(&other) {
             other
         } else if other.assignable_to(&self) {
-            return self;
+            self
         } else {
             Self::Unknown
         }
