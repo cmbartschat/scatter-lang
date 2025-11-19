@@ -8,6 +8,32 @@ use crate::{
 
 static DEFS: &str = include_str!("./c.h");
 
+#[derive(Default)]
+struct CodegenTarget {
+    indentation: String,
+    output: String,
+}
+
+impl CodegenTarget {
+    pub fn write_line(&mut self, v: &str) {
+        self.output.write_str(&self.indentation).unwrap();
+        self.output.write_str(v).unwrap();
+        self.output.write_char('\n').unwrap();
+    }
+
+    pub fn increase_indent(&mut self) {
+        self.indentation.push_str("  ");
+    }
+    pub fn decrease_indent(&mut self) {
+        self.indentation.pop();
+        self.indentation.pop();
+    }
+
+    pub fn into_string(self) -> String {
+        self.output
+    }
+}
+
 fn maybe_mangle<'a>(v: &'a str) -> Cow<'a, str> {
     if get_intrinsic(v).is_some() {
         Cow::Borrowed(get_c_name(v))
@@ -16,73 +42,83 @@ fn maybe_mangle<'a>(v: &'a str) -> Cow<'a, str> {
     }
 }
 
-fn codegen_loop_condition(target: &mut String, block: &Option<Block>) {
+fn codegen_loop_condition(target: &mut CodegenTarget, block: &Option<Block>) {
     if let Some(e) = block {
         codegen_block(target, e);
-        writeln!(
-            target,
-            "int c; checked(check_condition(&c)); if (!c) {{break;}}"
-        )
-        .unwrap();
+        target.write_line("int c;");
+        target.write_line("checked(check_condition(&c));");
+        target.write_line("if (!c) {");
+        target.write_line("  break;");
+        target.write_line("}");
     }
 }
 
-fn codegen_loop(target: &mut String, loop_t: &Loop) {
-    writeln!(target, "while(1) {{").unwrap();
+fn codegen_loop(target: &mut CodegenTarget, loop_t: &Loop) {
+    target.write_line("while (1) {");
+    target.increase_indent();
     codegen_loop_condition(target, &loop_t.pre_condition);
     codegen_block(target, &loop_t.body);
     codegen_loop_condition(target, &loop_t.post_condition);
-    writeln!(target, "}}").unwrap();
+    target.decrease_indent();
+    target.write_line("}");
 }
 
-fn codegen_term(target: &mut String, term: &Term) {
+fn codegen_term(target: &mut CodegenTarget, term: &Term) {
     match term {
         Term::Literal(value) => match value {
-            Value::String(e) => writeln!(
-                target,
+            Value::String(e) => target.write_line(&format!(
                 "checked(push_string_literal({:?}, {}));",
                 e,
                 e.len()
-            )
-            .unwrap(),
-            Value::Number(e) => writeln!(target, "checked(push_number_literal({}L));", e).unwrap(),
-            Value::Bool(true) => writeln!(target, "checked(push_true_literal());").unwrap(),
-            Value::Bool(false) => writeln!(target, "checked(push_false_literal());").unwrap(),
+            )),
+            Value::Number(e) => {
+                target.write_line(&format!("checked(push_number_literal({}L));", e))
+            }
+            Value::Bool(true) => target.write_line("checked(push_true_literal());"),
+            Value::Bool(false) => target.write_line("checked(push_false_literal());"),
         },
-        Term::Name(n) => writeln!(target, "checked({}());", maybe_mangle(n)).unwrap(),
+        Term::Name(n) => target.write_line(&format!("checked({}());", maybe_mangle(n))),
         Term::Branch(branch) => {
             branch.arms.iter().for_each(|arm| {
                 codegen_block(target, &arm.0);
-                writeln!(target, "int c; checked(check_condition(&c)); if (c) {{").unwrap();
+                target.write_line("int c;");
+                target.write_line("checked(check_condition(&c));");
+                target.write_line("if (c) {");
+                target.increase_indent();
                 codegen_block(target, &arm.1);
-                writeln!(target, "}} else {{").unwrap();
+                target.decrease_indent();
+                target.write_line("} else {");
+                target.increase_indent();
             });
 
             branch.arms.iter().for_each(|_| {
-                target.write_char('}').unwrap();
+                target.decrease_indent();
+                target.write_line("}");
             });
         }
         Term::Loop(loop_t) => codegen_loop(target, loop_t),
     }
 }
 
-fn codegen_block(target: &mut String, block: &Block) {
+fn codegen_block(target: &mut CodegenTarget, block: &Block) {
     block.terms.iter().for_each(|t| codegen_term(target, t));
 }
 
-fn codegen_func(target: &mut String, name: &str, body: &Block) {
-    writeln!(target, "int {}() {{", name).unwrap();
+fn codegen_func(target: &mut CodegenTarget, name: &str, body: &Block) {
+    target.write_line(&format!("int {}() {{", name));
+    target.increase_indent();
     codegen_block(target, body);
-    writeln!(target, "return OK;").unwrap();
-    writeln!(target, "}}").unwrap();
+    target.write_line("return OK;");
+    target.decrease_indent();
+    target.write_line("}");
 }
 
-fn forward_declare_func(target: &mut String, func: &Function) {
-    writeln!(target, "int {}();", maybe_mangle(&func.name)).unwrap();
+fn forward_declare_func(target: &mut CodegenTarget, func: &Function) {
+    target.write_line(&format!("int {}();", maybe_mangle(&func.name)));
 }
 
 pub fn codegen_module(ast: &Module) {
-    let mut target = String::new();
+    let mut target = CodegenTarget::default();
 
     for func in ast.functions.iter() {
         forward_declare_func(&mut target, func);
@@ -95,10 +131,11 @@ pub fn codegen_module(ast: &Module) {
     codegen_func(&mut target, "main_body", &ast.body);
 
     println!(
-        "{DEFS}{target}
+        "{DEFS}{}
 int main() {{
-checked(main_body());
-checked(print_stack());
-}}"
+  checked(main_body());
+  checked(print_stack());
+}}",
+        target.into_string()
     );
 }
