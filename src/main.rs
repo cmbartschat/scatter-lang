@@ -13,7 +13,11 @@ mod tokenizer;
 
 use clap::Parser;
 
-use crate::{codegen::codegen_module, parser::parse, repl::Repl};
+use crate::{
+    codegen::{c::c_codegen_module, js::js_codegen_module},
+    parser::parse,
+    repl::Repl,
+};
 
 #[derive(Parser, Debug)]
 pub struct ReplArgs {
@@ -27,15 +31,15 @@ pub struct ReplArgs {
     #[arg(short, long, default_value_t = false)]
     pub interactive: bool,
 
-    /// Generate C code for the provided file
-    #[arg(short, long, default_value_t = false)]
-    pub generate: bool,
+    /// Generate code for the provided file
+    #[arg(short, long)]
+    pub generate: Option<String>,
 }
 
 fn main() {
     let args = ReplArgs::parse();
 
-    if args.generate {
+    if let Some(lang) = args.generate {
         if args.files.len() != 1 {
             eprintln!("Expected exactly one file provided");
             std::process::exit(1);
@@ -43,7 +47,14 @@ fn main() {
         let path = args.files.first().unwrap();
         let source = std::fs::read_to_string(path).expect("Failed to read file");
         let ast = parse(&source).expect("Failed to parse");
-        codegen_module(&ast);
+        match lang.as_str() {
+            "c" => c_codegen_module(&ast),
+            "js" => js_codegen_module(&ast),
+            _ => {
+                eprintln!("Expected c or js for generation mode");
+                std::process::exit(1);
+            }
+        }
         return;
     }
 
