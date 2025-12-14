@@ -19,6 +19,11 @@ fn clear_and_push_word(tokens: &mut Vec<Token>, word: &mut String) {
     word.clear();
 }
 
+fn end_line(tokens: &mut Vec<Token>, word: &mut String) {
+    clear_and_push_word(tokens, word);
+    tokens.push(Token::Symbol(Symbol::LineEnd));
+}
+
 fn do_symbol(tokens: &mut Vec<Token>, word: &mut String, symbol: Symbol) {
     clear_and_push_word(tokens, word);
     tokens.push(Token::Symbol(symbol));
@@ -104,8 +109,11 @@ pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
                     ')' => do_symbol(&mut tokens, word, Symbol::ParenClose),
                     '[' => do_symbol(&mut tokens, word, Symbol::SquareOpen),
                     ']' => do_symbol(&mut tokens, word, Symbol::SquareClose),
-                    ' ' | '\n' => {
+                    ' ' => {
                         clear_and_push_word(&mut tokens, word);
+                    }
+                    '\n' => {
+                        end_line(&mut tokens, word);
                     }
                     c => {
                         word.push(c);
@@ -124,7 +132,7 @@ pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
         ParseState::LineComment => {}
         ParseState::String(_) => return Err("Unbounded string"),
         ParseState::Normal(s) => {
-            clear_and_push_word(&mut tokens, &mut s.word);
+            end_line(&mut tokens, &mut s.word);
         }
     };
 

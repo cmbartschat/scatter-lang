@@ -9,6 +9,7 @@ pub enum Symbol {
     ParenClose,
     SquareOpen,
     SquareClose,
+    LineEnd,
 }
 
 impl Debug for Symbol {
@@ -21,6 +22,7 @@ impl Debug for Symbol {
             Self::ParenClose => ')',
             Self::SquareOpen => '[',
             Self::SquareClose => ']',
+            Self::LineEnd => '␤',
         })
     }
 }

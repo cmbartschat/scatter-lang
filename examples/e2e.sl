@@ -358,4 +358,14 @@ false false == true should_equal
 true false == false should_equal
 end_suite
 
+// Single function Tests
+constant: 300
+double_increment: ++ ++
+noop:
+"single_functions" start_suite
+constant 300 should_equal
+3 double_increment 5 should_equal
+noop
+end_suite
+
 "all passed." print

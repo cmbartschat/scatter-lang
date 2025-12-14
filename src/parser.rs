@@ -16,11 +16,21 @@ enum BlockEndSymbol {
     SquareClose,
 }
 
+fn ignore_whitespace(tokens: &mut Tokens) {
+    while tokens
+        .peek()
+        .is_some_and(|f| *f == Token::Symbol(Symbol::LineEnd))
+    {
+        tokens.next();
+    }
+}
+
 fn assert_next_symbol(
     symbol: Symbol,
     message: &'static str,
     tokens: &mut Tokens,
 ) -> Result<(), &'static str> {
+    ignore_whitespace(tokens);
     if tokens.next().is_some_and(|f| f == Token::Symbol(symbol)) {
         Ok(())
     } else {
@@ -29,6 +39,7 @@ fn assert_next_symbol(
 }
 
 fn maybe_consume_next_symbol(symbol: Symbol, tokens: &mut Tokens) -> bool {
+    ignore_whitespace(tokens);
     if tokens.peek().is_some_and(|f| f == &Token::Symbol(symbol)) {
         tokens.next();
         true
@@ -46,6 +57,7 @@ fn consume_block_terms(
             Some(Token::Literal(l)) => target.push(Term::Literal(l)),
             Some(Token::Name(l)) => target.push(Term::Name(l)),
             Some(Token::Symbol(s)) => match s {
+                Symbol::LineEnd => {}
                 Symbol::Colon => return Err("Unexpected : in block"),
                 Symbol::CurlyClose => return Ok(Some(BlockEndSymbol::CurlyClose)),
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens)?)),
@@ -149,17 +161,52 @@ fn parse_function_body(tokens: &mut Tokens) -> ParseResult<Block> {
     }
 }
 
-fn parse_function(name: String, tokens: &mut Tokens) -> ParseResult<Function> {
-    assert_next_symbol(
-        Symbol::CurlyOpen,
-        "Function block should begin with {",
-        tokens,
-    )?;
+fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
+    let mut target = vec![];
 
-    Ok(Function {
-        name,
-        body: parse_function_body(tokens)?,
-    })
+    loop {
+        match tokens.next() {
+            Some(Token::Literal(l)) => target.push(Term::Literal(l)),
+            Some(Token::Name(l)) => target.push(Term::Name(l)),
+            Some(Token::Symbol(s)) => match s {
+                Symbol::LineEnd => break,
+                Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens)?)),
+                Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens)?)),
+                _ => todo!(),
+            },
+
+            None => break,
+        };
+    }
+    Ok(Block { terms: target })
+}
+
+fn parse_function(name: String, tokens: &mut Tokens) -> ParseResult<Function> {
+    let is_multiline = match tokens.peek() {
+        Some(Token::Symbol(Symbol::LineEnd)) | None => {
+            return Ok(Function {
+                name,
+                body: Block { terms: vec![] },
+            });
+        }
+        Some(Token::Symbol(Symbol::CurlyOpen)) => {
+            tokens.next();
+            true
+        }
+        _ => false,
+    };
+
+    if is_multiline {
+        Ok(Function {
+            name,
+            body: parse_function_body(tokens)?,
+        })
+    } else {
+        Ok(Function {
+            name,
+            body: parse_single_line(tokens)?,
+        })
+    }
 }
 
 fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
@@ -179,6 +226,7 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
                 }
             }
             Token::Symbol(s) => match s {
+                Symbol::LineEnd => {}
                 Symbol::Colon => return Err("Unexpected : in module"),
                 Symbol::ParenClose => return Err("Unexpected ) in module"),
                 Symbol::ParenOpen => return Err("Unexpected ( in module"),
