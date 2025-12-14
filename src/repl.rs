@@ -58,7 +58,15 @@ impl Repl {
 
     pub fn load_file(&mut self, path: &str) -> ReplResult {
         let source = std::fs::read_to_string(path).map_err(|_| "Failed to read file")?;
-        self.load_code(&source)
+        let source = if source.starts_with("#!") {
+            let Some(next_line) = source.find('\n') else {
+                return Ok(());
+            };
+            &source[next_line..]
+        } else {
+            source.as_str()
+        };
+        self.load_code(source)
     }
 
     pub fn list(&mut self) -> ReplResult {
