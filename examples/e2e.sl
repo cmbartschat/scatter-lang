@@ -1,4 +1,4 @@
-#! /Users/cmb/repo/melange/projects/stacklang/target/release/stacklang
+#!/usr/bin/env stacklang
 // StackLang Intrinsics Unit Tests
 
 start_suite: { // suite_name -- fail_count logs

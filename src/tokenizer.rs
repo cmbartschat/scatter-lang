@@ -65,7 +65,11 @@ impl ParseState {
 
 pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
     let mut tokens = vec![];
-    let mut state = ParseState::normal();
+    let mut state = if source.starts_with("#!") {
+        ParseState::LineComment
+    } else {
+        ParseState::normal()
+    };
     let mut chars = source.chars().peekable();
 
     while let Some(char) = chars.next() {
