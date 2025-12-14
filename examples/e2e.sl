@@ -279,7 +279,7 @@ countdown: {
     --
   ]
 }
-// 2 countdown 2 should_equal3_first 1 should_equal3_second 0 should_equal3
+2 countdown 2 should_equal3_first 1 should_equal3_second 0 should_equal3
 end_suite
 
 "factorial_loop" start_suite
