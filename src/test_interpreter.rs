@@ -12,10 +12,10 @@ mod tests {
     #[test]
     fn basic_add() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![420f64.into(), 42f64.into(), Term::Name("+".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -26,10 +26,10 @@ mod tests {
     #[test]
     fn basic_subtract() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![420f64.into(), 42f64.into(), Term::Name("-".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -40,10 +40,10 @@ mod tests {
     #[test]
     fn basic_multiply() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![20f64.into(), 4f64.into(), Term::Name("*".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -54,10 +54,10 @@ mod tests {
     #[test]
     fn basic_divide() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![20f64.into(), 4f64.into(), Term::Name("/".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -68,10 +68,10 @@ mod tests {
     #[test]
     fn basic_or() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![true.into(), false.into(), Term::Name("||".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -82,10 +82,10 @@ mod tests {
     #[test]
     fn basic_or2() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![false.into(), false.into(), Term::Name("||".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -96,10 +96,10 @@ mod tests {
     #[test]
     fn basic_or3() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![true.into(), true.into(), Term::Name("||".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -110,10 +110,10 @@ mod tests {
     #[test]
     fn basic_and() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![true.into(), false.into(), Term::Name("&&".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -124,10 +124,10 @@ mod tests {
     #[test]
     fn basic_and2() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![false.into(), false.into(), Term::Name("&&".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -138,10 +138,10 @@ mod tests {
     #[test]
     fn basic_and3() {
         let ast = Module {
-            functions: vec![],
             body: Block {
                 terms: vec![true.into(), true.into(), Term::Name("&&".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -161,6 +161,7 @@ mod tests {
             body: Block {
                 terms: vec![Term::Name("generate".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -203,6 +204,7 @@ mod tests {
             body: Block {
                 terms: vec![5.into(), Term::Name("rfib".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);
@@ -244,6 +246,7 @@ mod tests {
             body: Block {
                 terms: vec![20.into(), Term::Name("ifib".into())],
             },
+            ..Default::default()
         };
 
         let result = interpret(ast);

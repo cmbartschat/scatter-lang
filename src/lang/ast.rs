@@ -38,7 +38,7 @@ pub struct Loop {
     pub post_condition: Option<Block>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Block {
     pub terms: Vec<Term>,
 }
@@ -49,7 +49,7 @@ pub struct Function {
     pub body: Block,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Module {
     pub functions: Vec<Function>,
     pub body: Block,
