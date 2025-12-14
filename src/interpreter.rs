@@ -37,15 +37,18 @@ impl Interpreter {
         self.input = None;
     }
 
-    pub fn readline(&mut self) -> Result<String, &'static str> {
+    pub fn readline(&mut self) -> Result<Option<String>, &'static str> {
         match &mut self.input {
             Some(e) => {
                 let mut line = String::new();
-                e.read_line(&mut line).map_err(|_| "read_line failed")?;
+                let bytes_written = e.read_line(&mut line).map_err(|_| "read_line failed")?;
+                if bytes_written == 0 {
+                    return Ok(None);
+                }
                 if line.ends_with('\n') {
                     line.pop();
                 }
-                Ok(line)
+                Ok(Some(line))
             }
             None => Err("Cannot read line while stdin is not attached"),
         }

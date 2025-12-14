@@ -213,6 +213,35 @@ fn: {
     }
 
     #[test]
+    fn loop_8() {
+        assert_fn_arity("fn: [(readline) print] drop", "-");
+    }
+
+    #[test]
+    fn loop_9() {
+        assert_fn_err(
+            "fn: [(readline) print (readline)]",
+            AnalysisError::IndefiniteSize,
+        );
+    }
+
+    #[test]
+    fn loop_10() {
+        assert_fn_err(
+            "fn: [(readline) print (readline drop)] drop",
+            AnalysisError::IndefiniteSize,
+        );
+    }
+
+    #[test]
+    fn loop_11() {
+        assert_fn_err(
+            "fn: [(readline) print (1)] drop",
+            AnalysisError::IndefiniteSize,
+        );
+    }
+
+    #[test]
     fn test_intrinsic_or() {
         assert_fn_arity("fn: {||}", "1 0 - 0|1");
     }

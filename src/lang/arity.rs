@@ -170,6 +170,10 @@ impl Arity {
         Self::noop().with_pop(a).with_push(r)
     }
 
+    pub fn push_two(a: Type, b: Type) -> Self {
+        Self::noop().with_push(a).with_push(b)
+    }
+
     pub fn binary(a: Type, b: Type, r: Type) -> Self {
         Self::noop().with_pop(a).with_pop(b).with_push(r)
     }

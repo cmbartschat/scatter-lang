@@ -166,9 +166,10 @@ rot             // Rotate top three values: a b c -> b c a
 drop            // Remove top value: a b -> a
 ```
 
-### Output
+### Input/Output
 
 ```
+readline        // Read a line of input, returns [string, boolean]. The boolean is true if the input stream is still open.
 print           // Print the top value to the screen
 ```
 
