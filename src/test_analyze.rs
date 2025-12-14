@@ -198,6 +198,21 @@ fn: {
     }
 
     #[test]
+    fn loop_5() {
+        assert_fn_err("fn: [1]", AnalysisError::IndefiniteSize);
+    }
+
+    #[test]
+    fn loop_6() {
+        assert_fn_err("fn: [() 1 1 1 ()]", AnalysisError::IndefiniteSize);
+    }
+
+    #[test]
+    fn loop_7() {
+        assert_fn_arity("fn: [1 ()]", "-");
+    }
+
+    #[test]
     fn test_intrinsic_or() {
         assert_fn_arity("fn: {||}", "1 0 - 0|1");
     }

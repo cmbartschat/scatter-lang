@@ -138,7 +138,7 @@ impl ResultantType {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub struct Arity {
     pub pops: Vec<Type>,
     pub pushes: Vec<ResultantType>,
@@ -160,11 +160,6 @@ impl Arity {
 
     pub fn size(&self) -> (usize, usize) {
         (self.pops.len(), self.pushes.len())
-    }
-
-    pub fn is_neutral(&self) -> bool {
-        let size = self.size();
-        size.0 == size.1
     }
 
     pub fn literal(r: Type) -> Self {
@@ -380,6 +375,12 @@ impl Arity {
     // (a -- b) + (b -- ) => (a -- )
     // (a b -- c d) + (c d -- e f) = (a b -- e f)
     // (a b -- c d) + (e c d -- f) = (e a b -- f)
+}
+
+impl std::fmt::Debug for Arity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", &self.stringify())
+    }
 }
 
 #[cfg(test)]

@@ -107,55 +107,69 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
         }
         Term::Loop(loop_v) => {
             let pre_arity = if let Some(pre) = &loop_v.pre_condition {
-                analyze_condition(arities, pre)?
+                Some(analyze_condition(arities, pre)?)
             } else {
-                Arity::noop()
+                None
             };
 
-            if !pre_arity.is_neutral() {
-                return BlockAnalysisResult::Err(AnalysisError::IndefiniteSize);
-            }
+            let main_arity = analyze_block(arities, &loop_v.body)?;
 
-            let main_arity = if let Some(post) = &loop_v.post_condition {
-                analyze_block(arities, &loop_v.body)?
-                    .with_serial(&analyze_condition(arities, post)?)
+            let post_arity = if let Some(post) = &loop_v.post_condition {
+                Some(analyze_condition(arities, post)?)
             } else {
-                analyze_block(arities, &loop_v.body)?
+                None
             };
 
-            if !main_arity.is_neutral() {
-                return BlockAnalysisResult::Err(AnalysisError::IndefiniteSize);
+            if pre_arity.is_none() && post_arity.is_none() {
+                return Err(AnalysisError::IndefiniteSize);
             }
 
-            let mut arity = pre_arity.clone();
+            let mut running_arity = Arity::noop();
+            let mut possible_arity = None;
+            let mut seen_states = vec![];
 
-            let mut alternates = vec![];
+            let record_next_exit_arity = |running: &mut Arity,
+                                          possible: &mut Option<Arity>,
+                                          next: &Arity|
+             -> Result<(), AnalysisError> {
+                running.serial(next);
 
-            arity.serial(&main_arity);
-            alternates.push(arity.clone());
+                let next_possible = match possible {
+                    Some(possible) => match Arity::parallel(possible, running) {
+                        Ok(n) => n,
+                        Err(ArityCombineError::DifferingSizes) => {
+                            return Err(AnalysisError::IndefiniteSize);
+                        }
+                        Err(ArityCombineError::DifferentInputs) => {
+                            return Err(AnalysisError::IncompatibleTypes);
+                        }
+                    },
+                    None => running.clone(),
+                };
 
-            arity.serial(&pre_arity);
-            alternates.push(arity.clone());
+                *possible = Some(next_possible);
 
-            arity.serial(&main_arity);
-            alternates.push(arity.clone());
+                Ok(())
+            };
 
-            arity.serial(&pre_arity);
-            alternates.push(arity.clone());
-
-            arity.serial(&main_arity);
-            for alt in alternates {
-                arity = match Arity::parallel(&arity, &alt) {
-                    Ok(n) => n,
-                    Err(ArityCombineError::DifferingSizes) => {
-                        return Err(AnalysisError::IndefiniteSize);
-                    }
-                    Err(ArityCombineError::DifferentInputs) => {
-                        return Err(AnalysisError::IncompatibleTypes);
-                    }
+            loop {
+                if seen_states.contains(&running_arity) {
+                    break;
                 }
+                seen_states.push(running_arity.clone());
+
+                if let Some(pre) = pre_arity.as_ref() {
+                    record_next_exit_arity(&mut running_arity, &mut possible_arity, pre)?;
+                };
+
+                running_arity.serial(&main_arity);
+
+                if let Some(post) = post_arity.as_ref() {
+                    record_next_exit_arity(&mut running_arity, &mut possible_arity, post)?;
+                };
             }
-            Ok(arity)
+
+            Ok(possible_arity.expect("Must have filled possible_arity at least once"))
         }
     }
 }
