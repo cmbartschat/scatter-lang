@@ -113,6 +113,7 @@ pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
                     ')' => do_symbol(&mut tokens, word, Symbol::ParenClose),
                     '[' => do_symbol(&mut tokens, word, Symbol::SquareOpen),
                     ']' => do_symbol(&mut tokens, word, Symbol::SquareClose),
+                    '#' => do_symbol(&mut tokens, word, Symbol::Hash),
                     ' ' => {
                         clear_and_push_word(&mut tokens, word);
                     }

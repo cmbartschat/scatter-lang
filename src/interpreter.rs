@@ -54,13 +54,19 @@ impl Interpreter {
         }
     }
 
-    pub fn load(&mut self, m: &Module) -> Result<(), &'static str> {
+    pub fn load_functions(&mut self, m: &Module) -> Result<(), &'static str> {
         for function in &m.functions {
-            self.functions
-                .insert(function.name.clone(), function.clone());
+            if self
+                .functions
+                .insert(function.name.clone(), function.clone())
+                .is_some()
+            {
+                eprintln!("Duplicate function: {}", function.name);
+                return Err("Duplicate function definition");
+            };
         }
 
-        self.evaluate_block(&m.body)
+        Ok(())
     }
 
     pub fn take(&mut self) -> Result<Value, &'static str> {
@@ -138,7 +144,7 @@ impl Interpreter {
         self.functions.get(name).cloned()
     }
 
-    fn evaluate_block(&mut self, block: &Block) -> Result<(), &'static str> {
+    pub fn evaluate_block(&mut self, block: &Block) -> Result<(), &'static str> {
         for term in block.terms.iter() {
             self.evaluate_term(term)?;
         }

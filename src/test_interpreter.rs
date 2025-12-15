@@ -5,7 +5,8 @@ mod tests {
 
     fn interpret(program: Module) -> Stack {
         let mut ctx = Interpreter::new();
-        ctx.load(&program).expect("Execution error");
+        ctx.load_functions(&program).expect("Function load error");
+        ctx.evaluate_block(&program.body).expect("Execution error");
         ctx.stack
     }
 

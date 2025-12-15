@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::lang::{Block, Branch, Function, Loop, Module, Term};
+    use crate::lang::{
+        Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, Term,
+    };
     use crate::parser::parse;
 
     #[test]
@@ -261,6 +263,23 @@ mod tests {
             body: Block {
                 terms: vec![1.into(), 2.into(), 3.into()],
             },
+            ..Default::default()
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn import() {
+        let code = r#"
+# * "./3.sl"
+        "#;
+
+        let ast = Module {
+            imports: vec![Import {
+                naming: ImportNaming::Wildcard,
+                location: ImportLocation::Relative("./3.sl".into()),
+            }],
             ..Default::default()
         };
         let result = parse(code).unwrap();

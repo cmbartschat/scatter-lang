@@ -58,7 +58,10 @@ fn main() {
         return;
     }
 
-    let repl = Repl::new(args);
+    let repl = Repl::new(
+        args,
+        std::env::current_dir().expect("Could not get current directory"),
+    );
     match repl.run() {
         Ok(()) => (),
         Err(e) => {

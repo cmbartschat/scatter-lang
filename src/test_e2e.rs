@@ -1,21 +1,20 @@
 #[cfg(test)]
 mod tests {
     use crate::intrinsics::{get_c_name, get_intrinsics};
-    use crate::lang::Value;
     use crate::{interpreter::Interpreter, parser::parse};
 
-    fn interpret_str(source: &str) -> Vec<Value> {
-        let ast = parse(source).unwrap();
-        let mut ctx = Interpreter::new();
-        ctx.load(&ast).expect("Execution error");
-        ctx.stack
-    }
-
+    static TEST_HELPERS: &str = include_str!("../examples/test.sl");
     static E2E_TESTS: &str = include_str!("../examples/e2e.sl");
 
     #[test]
     fn e2e() {
-        assert_eq!(interpret_str(E2E_TESTS), vec![]);
+        let helpers_ast = parse(TEST_HELPERS).unwrap();
+        let ast = parse(E2E_TESTS).unwrap();
+        let mut ctx = Interpreter::new();
+        ctx.load_functions(&helpers_ast).unwrap();
+        ctx.load_functions(&ast).unwrap();
+        ctx.evaluate_block(&ast.body).unwrap();
+        assert_eq!(ctx.stack, vec![]);
     }
 
     static SKIPPED_INTRINSICS: [&str; 3] = ["assert", "print", "readline"];

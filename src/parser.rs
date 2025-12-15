@@ -1,7 +1,10 @@
 use std::{iter::Peekable, vec::IntoIter};
 
 use crate::{
-    lang::{Block, Branch, Function, Loop, Module, Symbol, Term, Token},
+    lang::{
+        Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, Symbol, Term,
+        Token, Value,
+    },
     tokenizer::tokenize,
 };
 
@@ -58,6 +61,7 @@ fn consume_block_terms(
             Some(Token::Name(l)) => target.push(Term::Name(l)),
             Some(Token::Symbol(s)) => match s {
                 Symbol::LineEnd => {}
+                Symbol::Hash => return Err("Unexpected # in block"),
                 Symbol::Colon => return Err("Unexpected : in block"),
                 Symbol::CurlyClose => return Ok(Some(BlockEndSymbol::CurlyClose)),
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens)?)),
@@ -209,8 +213,32 @@ fn parse_function(name: String, tokens: &mut Tokens) -> ParseResult<Function> {
     }
 }
 
+fn parse_import(tokens: &mut Tokens) -> ParseResult<Import> {
+    ignore_whitespace(tokens);
+
+    let Some(first) = tokens.next() else {
+        return Err("End of line during import");
+    };
+
+    let naming: ImportNaming = match first {
+        Token::Name(n) if n == "*" => ImportNaming::Wildcard,
+        _ => return Err("Unexpected expression in import"),
+    };
+
+    let path = match tokens.next() {
+        Some(Token::Literal(Value::String(s))) => s,
+        _ => return Err("Expected path after import"),
+    };
+
+    Ok(Import {
+        naming,
+        location: ImportLocation::Relative(path),
+    })
+}
+
 fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
     let mut module = Module {
+        imports: vec![],
         functions: vec![],
         body: Block { terms: vec![] },
     };
@@ -227,6 +255,7 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
             }
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => {}
+                Symbol::Hash => module.imports.push(parse_import(tokens)?),
                 Symbol::Colon => return Err("Unexpected : in module"),
                 Symbol::ParenClose => return Err("Unexpected ) in module"),
                 Symbol::ParenOpen => return Err("Unexpected ( in module"),

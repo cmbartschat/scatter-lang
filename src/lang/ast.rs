@@ -49,8 +49,25 @@ pub struct Function {
     pub body: Block,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ImportNaming {
+    Wildcard,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ImportLocation {
+    Relative(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Import {
+    pub naming: ImportNaming,
+    pub location: ImportLocation,
+}
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Module {
+    pub imports: Vec<Import>,
     pub functions: Vec<Function>,
     pub body: Block,
 }

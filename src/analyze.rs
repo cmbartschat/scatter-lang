@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic,
-    lang::{Arity, ArityCombineError, Block, Module, Term, Type, Value},
+    lang::{Arity, ArityCombineError, Block, Function, Module, Term, Type, Value},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -174,12 +174,12 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
     }
 }
 
-pub fn analyze(m: &Module) -> Analysis {
+pub fn analyze(m: &Module, functions: &HashMap<String, Function>) -> Analysis {
     let mut arities = HashMap::new();
 
     loop {
         let mut resolved_something = false;
-        for func in m.functions.iter() {
+        for (_, func) in functions.iter() {
             if arities.contains_key(&func.name) {
                 continue;
             }

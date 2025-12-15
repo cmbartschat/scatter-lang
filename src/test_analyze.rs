@@ -1,25 +1,36 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::analyze::{AnalysisError, analyze};
 
+    use crate::lang::{Function, Module};
     use crate::parser::parse;
+
+    fn from_fns(ast: &Module) -> HashMap<String, Function> {
+        let mut fns = HashMap::<String, Function>::new();
+        ast.functions.iter().for_each(|f| {
+            fns.insert(f.name.clone(), f.clone());
+        });
+        fns
+    }
 
     fn assert_fn_arity(code: &str, expected_arity: &str) {
         let ast = parse(code).unwrap();
-        let a = analyze(&ast);
+        let a = analyze(&ast, &from_fns(&ast));
         let actual_arity = a.arities.get("fn").unwrap().as_ref().unwrap().stringify();
         assert_eq!(actual_arity, expected_arity);
     }
 
     fn assert_fn_unset(code: &str) {
         let ast = parse(code).unwrap();
-        let a = analyze(&ast);
+        let a = analyze(&ast, &from_fns(&ast));
         assert_eq!(a.arities.get("fn"), None);
     }
 
     fn assert_fn_err(code: &str, expected_error: AnalysisError) {
         let ast = parse(code).unwrap();
-        let a = analyze(&ast);
+        let a = analyze(&ast, &from_fns(&ast));
         assert_eq!(a.arities.get("fn").unwrap(), &Err(expected_error));
     }
 
