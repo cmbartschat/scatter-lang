@@ -113,6 +113,17 @@ end_suite
 65 from_char "A" should_equal
 end_suite
 
+"index" start_suite
+"hello world" "h" index 0 should_equal
+"hello world" "x" index -1 should_equal
+"hello world" "w" index 6 should_equal
+"hello world" "world" index 6 should_equal
+"hello world" "worlds" index -1 should_equal
+"" "" index 0 should_equal
+"test" "" index 0  should_equal
+"hi" "hello" index -1 should_equal
+end_suite
+
 "length" start_suite
 "hello world" length 11 should_equal
 "" length 0 should_equal

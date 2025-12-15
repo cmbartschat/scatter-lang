@@ -689,4 +689,32 @@ status_t from_char() {
   res->refs = 1;
 
   stack_at(-1) = string_index_to_value(string_index);
+  return OK;
+}
+
+int index_of(string_source_t *needle, string_source_t *haystack) {
+  if (needle->len == 0) {
+    return 0;
+  }
+
+  int max = haystack->len - needle->len;
+
+  for (int i = 0; i <= max; i++) {
+    if (strncmp(haystack->data + i, needle->data, needle->len) == 0) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+status_t string_index() {
+  assert_stack_has(2);
+  stack_read_string(needle, -1);
+  stack_read_string(haystack, -2);
+  stack_at(-2) = index_of(needle, haystack);
+  STATE.value_count--;
+  dec_string_ref_count(needle);
+  dec_string_ref_count(haystack);
+  return OK;
 }

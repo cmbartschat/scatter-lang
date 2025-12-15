@@ -226,3 +226,11 @@ function from_char() {
   assertStackHas(1)
   storeStack(-1, String.fromCharCode(readStackNumber(-1)))
 }
+
+function string_index() {
+  assertStackHas(2)
+  const needle = readStackString(-1)
+  const haystack = readStackString(-2)
+  storeStack(-2, haystack.indexOf(needle))
+  drop()
+}

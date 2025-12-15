@@ -142,6 +142,13 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
     i.push(format!("{char}"))
 }
 
+fn index(i: &mut Interpreter) -> InterpreterResult {
+    let needle = i.take_string()?;
+    let haystack = i.take_string()?;
+    let location = haystack.find(&needle).map(|e| e as f64).unwrap_or(-1f64);
+    i.push(location)
+}
+
 fn equals(i: &mut Interpreter) -> InterpreterResult {
     match i.take2()? {
         (Value::Number(a), Value::Number(b)) => i.push(a == b),
@@ -219,6 +226,7 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ("substring", Arity::binary(N, N, S).with_pop(S), substring),
         ("to_char", Arity::unary(S, N), to_char),
         ("from_char", Arity::unary(N, S), from_char),
+        ("index", Arity::binary(S, S, N), index),
         ("join", Arity::binary(U, U, S), join),
         ("length", Arity::unary(S, N), length),
         ("assert", Arity::noop().with_pop(S).with_pop(U), assert),
@@ -249,6 +257,7 @@ pub fn get_intrinsics() -> &'static HashMap<String, IntrinsicData> {
 pub fn get_c_name(name: &str) -> &str {
     match name {
         "+" => "plus",
+        "index" => "string_index",
         "-" => "minus",
         "*" => "times",
         "/" => "divide",
