@@ -75,7 +75,13 @@ fn codegen_block(ctx: &mut CodegenContext, block: &Block) {
 }
 
 fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
-    ctx.target.write_line(&format!("status_t {}() {{", name));
+    if body.terms.is_empty() {
+        ctx.target
+            .write_line(&format!("status_t {}(void) {{ return OK; }}", name));
+        return;
+    }
+    ctx.target
+        .write_line(&format!("status_t {}(void) {{", name));
     ctx.target.increase_indent();
     codegen_block(ctx, body);
     ctx.target.write_line("return OK;");
@@ -84,8 +90,10 @@ fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
 }
 
 fn forward_declare_func(ctx: &mut CodegenContext, func: &Function) {
-    ctx.target
-        .write_line(&format!("status_t {}();", ctx.get_scoped_name(&func.name)));
+    ctx.target.write_line(&format!(
+        "status_t {}(void);",
+        ctx.get_scoped_name(&func.name)
+    ));
 }
 
 pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) {
@@ -115,7 +123,7 @@ pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &B
 
     println!(
         "{DEFS}{}
-int main() {{
+int main(void) {{
   checked(main_body());
   checked(print_stack());
 }}",

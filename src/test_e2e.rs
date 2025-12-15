@@ -57,4 +57,25 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn intrinsics_codegen_test() {
+        static C_DEFINITIONS: &'static str = include_str!("./codegen/c.h");
+        static JS_DEFINITIONS: &'static str = include_str!("./codegen/js.js");
+
+        let js_exceptions = ["readline"];
+
+        for name in get_intrinsics().iter().map(|f| get_c_name(f.0)) {
+            assert!(
+                C_DEFINITIONS.contains(&format!("status_t {name}(void) {{")),
+                "defined by c: {name}",
+            );
+            if !js_exceptions.contains(&name) {
+                assert!(
+                    JS_DEFINITIONS.contains(&format!("function {name}() {{")),
+                    "defined by js: {name}",
+                );
+            }
+        }
+    }
 }

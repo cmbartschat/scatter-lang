@@ -1,22 +1,11 @@
-/* eslint-disable quotes */
-/* eslint-disable camelcase */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-empty */
-/* eslint-disable no-constant-condition */
-/* eslint-disable no-console */
+/* eslint-disable camelcase, @typescript-eslint/no-unused-vars */
 const STATE = {
   values: [],
 }
 
 const STACK_UNDERFLOW = 101
-const STACK_OVERFLOW = 102
-const STRING_MAX = 103
 const TYPE_MISMATCH = 104
 const ASSERT_FAILED = 105
-
-const NOT_IMPLEMENTED = 201
-const DATA_CORRUPTED = 202
-const STRING_TOO_LONG = 203
 
 function assertStackHas(x) {
   if (STATE.values.length < x) {
@@ -180,6 +169,7 @@ function dup() {
 
 function print() {
   assertStackHas(1)
+  // eslint-disable-next-line no-console
   console.log(readStack(-1))
   drop()
 }
@@ -189,7 +179,8 @@ function assert() {
   const value = readStack(-2)
   const message = readStackString(-1)
   if (!value) {
-    console.error("Assertion failed: ", message)
+    // eslint-disable-next-line no-console
+    console.error('Assertion failed: ', message)
     throw ASSERT_FAILED
   }
   drop()
@@ -210,6 +201,7 @@ function printStack() {
   if (STATE.values.length === 0) {
     return
   }
+  // eslint-disable-next-line no-console
   console.log(STATE.values)
 }
 

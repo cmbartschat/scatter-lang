@@ -32,10 +32,8 @@ static const status_t STRING_MAX = 103;
 static const status_t TYPE_MISMATCH = 104;
 static const status_t ASSERT_FAILED = 105;
 
-static const status_t NOT_IMPLEMENTED = 201;
-static const status_t DATA_CORRUPTED = 202;
-static const status_t STRING_TOO_LONG = 203;
-static const status_t STDIN_FAILED = 204;
+static const status_t STRING_TOO_LONG = 202;
+static const status_t STDIN_FAILED = 203;
 
 static char SCRATCH_A[100];
 static char SCRATCH_B[100];
@@ -176,7 +174,7 @@ int strings_equal(string_source_t *first, string_source_t *second) {
   return 1;
 }
 
-int values_equal(value_t first, value_t second) {
+status_t values_equal(value_t first, value_t second, int *result) {
   if (isnan(first)) {
     string_source_t *first_string;
     maybe_resolve_string_value(first, &first_string);
@@ -188,7 +186,8 @@ int values_equal(value_t first, value_t second) {
       if (second_string == NULL) {
         return TYPE_MISMATCH;
       }
-      return strings_equal(first_string, second_string);
+      *result = strings_equal(first_string, second_string);
+      return OK;
     } else if (second_string != NULL) {
       return TYPE_MISMATCH;
     }
@@ -196,13 +195,13 @@ int values_equal(value_t first, value_t second) {
     uint64_t first_bytes = *(uint64_t *)&first;
     uint64_t second_bytes = *(uint64_t *)&second;
 
-    value_t r = strings_equal(first_string, second_string) ? TRUE_V : FALSE_V;
-
-    return (first_bytes == TRUE_BYTES && second_bytes == TRUE_BYTES) ||
-           (first_bytes == FALSE_BYTES && second_bytes == FALSE_BYTES);
+    *result = (first_bytes == TRUE_BYTES && second_bytes == TRUE_BYTES) ||
+              (first_bytes == FALSE_BYTES && second_bytes == FALSE_BYTES);
+    return OK;
   }
 
-  return first == second;
+  *result = first == second;
+  return OK;
 }
 
 int is_truthy(value_t v) {
@@ -280,7 +279,7 @@ status_t print_to_string(value_t v, char *scratch_string, int scratch_length,
   return OK;
 }
 
-status_t print_stack() {
+status_t print_stack(void) {
   if (STATE.value_count == 0) {
     return OK;
   }
@@ -299,7 +298,7 @@ status_t print_stack() {
   return OK;
 }
 
-status_t dup() {
+status_t dup(void) {
   assert_stack_has(1);
   assert_stack_capacity(1);
   stack_read(v, -1);
@@ -309,7 +308,7 @@ status_t dup() {
   return OK;
 }
 
-status_t swap() {
+status_t swap(void) {
   assert_stack_has(2);
   stack_read(first, -2);
   stack_at(-2) = stack_at(-1);
@@ -317,7 +316,7 @@ status_t swap() {
   return OK;
 }
 
-status_t over() {
+status_t over(void) {
   assert_stack_has(2);
   assert_stack_capacity(1);
   stack_read(v, -2);
@@ -327,7 +326,7 @@ status_t over() {
   return OK;
 }
 
-status_t and_i() {
+status_t and_i(void) {
   assert_stack_has(2);
   stack_read(first, -2);
   stack_read(second, -1);
@@ -338,11 +337,10 @@ status_t and_i() {
   return OK;
 }
 
-status_t or_i() {
+status_t or_i(void) {
   assert_stack_has(2);
   stack_read(first, -2);
   stack_read(second, -1);
-  value_t r;
   int use_first = is_truthy(first);
   stack_at(-2) = use_first ? first : second;
   dec_ref_count(use_first ? second : first);
@@ -350,7 +348,7 @@ status_t or_i() {
   return OK;
 }
 
-status_t rot() {
+status_t rot(void) {
   assert_stack_has(3);
   value_t first = stack_at(-3);
   stack_at(-3) = stack_at(-2);
@@ -359,7 +357,7 @@ status_t rot() {
   return OK;
 }
 
-status_t greater() {
+status_t greater(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -368,7 +366,7 @@ status_t greater() {
   return OK;
 }
 
-status_t less() {
+status_t less(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -377,7 +375,7 @@ status_t less() {
   return OK;
 }
 
-status_t modulo() {
+status_t modulo(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -386,7 +384,7 @@ status_t modulo() {
   return OK;
 }
 
-status_t not() {
+status_t not(void) {
   assert_stack_has(1);
   stack_read(v, -1);
   stack_at(-1) = is_truthy(v) ? FALSE_V : TRUE_V;
@@ -394,7 +392,7 @@ status_t not() {
   return OK;
 }
 
-status_t minus() {
+status_t minus(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -403,7 +401,7 @@ status_t minus() {
   return OK;
 }
 
-status_t plus() {
+status_t plus(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -412,7 +410,7 @@ status_t plus() {
   return OK;
 }
 
-status_t times() {
+status_t times(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -421,7 +419,7 @@ status_t times() {
   return OK;
 }
 
-status_t divide() {
+status_t divide(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -430,7 +428,7 @@ status_t divide() {
   return OK;
 }
 
-status_t pow_i() {
+status_t pow_i(void) {
   assert_stack_has(2);
   stack_read_number(first, -2);
   stack_read_number(second, -1);
@@ -439,24 +437,25 @@ status_t pow_i() {
   return OK;
 }
 
-status_t equals() {
+status_t equals(void) {
   assert_stack_has(2);
   stack_read(first, -2);
   stack_read(second, -1);
-  value_t r = values_equal(first, second) ? TRUE_V : FALSE_V;
-  stack_at(-2) = r;
+  int result;
+  checked(values_equal(first, second, &result));
+  stack_at(-2) = result ? TRUE_V : FALSE_V;
   STATE.value_count--;
   return OK;
 }
 
-status_t drop() {
+status_t drop(void) {
   assert_stack_has(1);
   dec_ref_count(stack_at(-1));
   STATE.value_count--;
   return OK;
 }
 
-status_t length() {
+status_t length(void) {
   assert_stack_has(1);
   stack_read_string(source, -1);
   stack_at(-1) = source->len;
@@ -464,7 +463,7 @@ status_t length() {
   return OK;
 }
 
-status_t substring() {
+status_t substring(void) {
   assert_stack_has(3);
   stack_read_string(source, -3);
   stack_read_number(start_double, -2);
@@ -510,7 +509,7 @@ status_t substring() {
   return OK;
 }
 
-status_t join() {
+status_t join(void) {
   assert_stack_has(2);
   stack_read(first, -2);
   stack_read(second, -1);
@@ -548,21 +547,21 @@ status_t join() {
   return OK;
 }
 
-status_t increment() {
+status_t increment(void) {
   assert_stack_has(1);
   stack_read_number(v, -1);
   STATE.values[STATE.value_count - 1] = v + 1;
   return OK;
 }
 
-status_t decrement() {
+status_t decrement(void) {
   assert_stack_has(1);
   stack_read_number(v, -1);
   STATE.values[STATE.value_count - 1] = v - 1;
   return OK;
 }
 
-status_t assert() {
+status_t assert(void) {
   assert_stack_has(2);
   stack_read(v, -2);
   stack_read_string(string_source, -1);
@@ -576,7 +575,7 @@ status_t assert() {
   return OK;
 }
 
-status_t print() {
+status_t print(void) {
   assert_stack_has(1);
   value_t v = STATE.values[STATE.value_count - 1];
   const char *str;
@@ -595,14 +594,14 @@ status_t push_number_literal(value_t v) {
   return OK;
 }
 
-status_t push_true_literal() {
+status_t push_true_literal(void) {
   assert_stack_capacity(1);
   stack_at(0) = TRUE_V;
   STATE.value_count++;
   return OK;
 }
 
-status_t push_false_literal() {
+status_t push_false_literal(void) {
   assert_stack_capacity(1);
   stack_at(0) = FALSE_V;
   STATE.value_count++;
@@ -626,7 +625,7 @@ status_t push_string_literal(const char *data, size_t len) {
   return OK;
 }
 
-status_t readline() {
+status_t readline(void) {
   char *line = NULL;
   size_t buffer_size = 0;
   ssize_t len = getline(&line, &buffer_size, stdin);
@@ -662,7 +661,7 @@ status_t readline() {
   return OK;
 }
 
-status_t to_char() {
+status_t to_char(void) {
   assert_stack_has(1);
   stack_read_string(source, -1);
   if (source->len != 1) {
@@ -673,7 +672,7 @@ status_t to_char() {
   return OK;
 }
 
-status_t from_char() {
+status_t from_char(void) {
   assert_stack_has(1);
   stack_read_number(code, -1);
 
@@ -708,7 +707,7 @@ int index_of(string_source_t *needle, string_source_t *haystack) {
   return -1;
 }
 
-status_t string_index() {
+status_t string_index(void) {
   assert_stack_has(2);
   stack_read_string(needle, -1);
   stack_read_string(haystack, -2);
