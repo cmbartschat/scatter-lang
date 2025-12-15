@@ -1,112 +1,117 @@
-use std::borrow::Cow;
-
 use crate::{
-    codegen::target::CodegenTarget,
-    intrinsics::{get_c_name, get_intrinsic},
-    lang::{Block, Function, Loop, Module, Term, Value},
+    codegen::context::CodegenContext,
+    lang::{Block, Function, Loop, Term, Value},
+    program::{NamespaceId, Program},
 };
 
 static DEFS: &str = include_str!("./c.h");
 
-fn maybe_mangle<'a>(v: &'a str) -> Cow<'a, str> {
-    if get_intrinsic(v).is_some() {
-        Cow::Borrowed(get_c_name(v))
-    } else {
-        Cow::Owned(format!("user_fn_{}", v))
-    }
-}
-
-fn codegen_loop_condition(target: &mut CodegenTarget, block: &Option<Block>) {
+fn codegen_loop_condition(ctx: &mut CodegenContext, block: &Option<Block>) {
     if let Some(e) = block {
-        codegen_block(target, e);
-        target.write_line("{");
-        target.increase_indent();
-        target.write_line("int c;");
-        target.write_line("checked(check_condition(&c));");
-        target.write_line("if (!c) {");
-        target.write_line("  break;");
-        target.write_line("}");
-        target.decrease_indent();
-        target.write_line("}");
+        codegen_block(ctx, e);
+        ctx.target.write_line("{");
+        ctx.target.increase_indent();
+        ctx.target.write_line("int c;");
+        ctx.target.write_line("checked(check_condition(&c));");
+        ctx.target.write_line("if (!c) {");
+        ctx.target.write_line("  break;");
+        ctx.target.write_line("}");
+        ctx.target.decrease_indent();
+        ctx.target.write_line("}");
     }
 }
 
-fn codegen_loop(target: &mut CodegenTarget, loop_t: &Loop) {
-    target.write_line("while (1) {");
-    target.increase_indent();
-    codegen_loop_condition(target, &loop_t.pre_condition);
-    codegen_block(target, &loop_t.body);
-    codegen_loop_condition(target, &loop_t.post_condition);
-    target.decrease_indent();
-    target.write_line("}");
+fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
+    ctx.target.write_line("while (1) {");
+    ctx.target.increase_indent();
+    codegen_loop_condition(ctx, &loop_t.pre_condition);
+    codegen_block(ctx, &loop_t.body);
+    codegen_loop_condition(ctx, &loop_t.post_condition);
+    ctx.target.decrease_indent();
+    ctx.target.write_line("}");
 }
 
-fn codegen_term(target: &mut CodegenTarget, term: &Term) {
+fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
     match term {
         Term::Literal(value) => match value {
-            Value::String(e) => target.write_line(&format!(
+            Value::String(e) => ctx.target.write_line(&format!(
                 "checked(push_string_literal({:?}, {}));",
                 e,
                 e.len()
             )),
-            Value::Number(e) => {
-                target.write_line(&format!("checked(push_number_literal({}L));", e))
-            }
-            Value::Bool(true) => target.write_line("checked(push_true_literal());"),
-            Value::Bool(false) => target.write_line("checked(push_false_literal());"),
+            Value::Number(e) => ctx
+                .target
+                .write_line(&format!("checked(push_number_literal({}L));", e)),
+            Value::Bool(true) => ctx.target.write_line("checked(push_true_literal());"),
+            Value::Bool(false) => ctx.target.write_line("checked(push_false_literal());"),
         },
-        Term::Name(n) => target.write_line(&format!("checked({}());", maybe_mangle(n))),
+        Term::Name(n) => ctx
+            .target
+            .write_line(&format!("checked({}());", ctx.resolve_name_reference(n))),
         Term::Branch(branch) => {
             branch.arms.iter().for_each(|arm| {
-                codegen_block(target, &arm.0);
-                target.write_line("int c;");
-                target.write_line("checked(check_condition(&c));");
-                target.write_line("if (c) {");
-                target.increase_indent();
-                codegen_block(target, &arm.1);
-                target.decrease_indent();
-                target.write_line("} else {");
-                target.increase_indent();
+                codegen_block(ctx, &arm.0);
+                ctx.target.write_line("int c;");
+                ctx.target.write_line("checked(check_condition(&c));");
+                ctx.target.write_line("if (c) {");
+                ctx.target.increase_indent();
+                codegen_block(ctx, &arm.1);
+                ctx.target.decrease_indent();
+                ctx.target.write_line("} else {");
+                ctx.target.increase_indent();
             });
 
             branch.arms.iter().for_each(|_| {
-                target.decrease_indent();
-                target.write_line("}");
+                ctx.target.decrease_indent();
+                ctx.target.write_line("}");
             });
         }
-        Term::Loop(loop_t) => codegen_loop(target, loop_t),
+        Term::Loop(loop_t) => codegen_loop(ctx, loop_t),
     }
 }
 
-fn codegen_block(target: &mut CodegenTarget, block: &Block) {
-    block.terms.iter().for_each(|t| codegen_term(target, t));
+fn codegen_block(ctx: &mut CodegenContext, block: &Block) {
+    block.terms.iter().for_each(|t| codegen_term(ctx, t));
 }
 
-fn codegen_func(target: &mut CodegenTarget, name: &str, body: &Block) {
-    target.write_line(&format!("int {}() {{", name));
-    target.increase_indent();
-    codegen_block(target, body);
-    target.write_line("return OK;");
-    target.decrease_indent();
-    target.write_line("}");
+fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
+    ctx.target.write_line(&format!("status_t {}() {{", name));
+    ctx.target.increase_indent();
+    codegen_block(ctx, body);
+    ctx.target.write_line("return OK;");
+    ctx.target.decrease_indent();
+    ctx.target.write_line("}");
 }
 
-fn forward_declare_func(target: &mut CodegenTarget, func: &Function) {
-    target.write_line(&format!("int {}();", maybe_mangle(&func.name)));
+fn forward_declare_func(ctx: &mut CodegenContext, func: &Function) {
+    ctx.target
+        .write_line(&format!("status_t {}();", ctx.get_scoped_name(&func.name)));
 }
 
-pub fn c_codegen_module(ast: &Module) {
-    let mut target = CodegenTarget::default();
+pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) {
+    let mut ctx = CodegenContext {
+        namespace: 0,
+        program,
+        target: Default::default(),
+    };
 
-    for func in ast.functions.iter() {
-        forward_declare_func(&mut target, func);
+    for (id, ast) in program.namespaces.iter().enumerate() {
+        ctx.namespace = id;
+        for (_, func) in ast.functions.iter() {
+            forward_declare_func(&mut ctx, func);
+        }
     }
 
-    for func in ast.functions.iter() {
-        codegen_func(&mut target, &maybe_mangle(&func.name), &func.body);
+    for (id, ast) in program.namespaces.iter().enumerate() {
+        ctx.namespace = id;
+        for (_, func) in ast.functions.iter() {
+            let name = &ctx.get_scoped_name(&func.name);
+            codegen_func(&mut ctx, name, &func.body);
+        }
     }
 
-    codegen_func(&mut target, "main_body", &ast.body);
+    ctx.namespace = main_namespace;
+    codegen_func(&mut ctx, "main_body", main);
 
     println!(
         "{DEFS}{}
@@ -114,6 +119,6 @@ int main() {{
   checked(main_body());
   checked(print_stack());
 }}",
-        target.into_string()
+        ctx.target.into_string()
     );
 }

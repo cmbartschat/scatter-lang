@@ -8,6 +8,7 @@ use std::{
 use crate::{
     ReplArgs,
     analyze::{AnalysisError, BlockAnalysisResult, analyze_block_in_namespace, analyze_program},
+    codegen::{c::c_codegen_module, js::js_codegen_module},
     interpreter::{Interpreter, InterpreterSnapshot},
     intrinsics::get_intrinsics,
     lang::{ImportLocation, ImportNaming, Module},
@@ -113,6 +114,17 @@ impl Repl {
     }
 
     fn consume_ast(&mut self, namespace: NamespaceId, ast: Module) -> ReplResult {
+        if let Some(lang) = &self.args.generate {
+            match lang.as_str() {
+                "c" => c_codegen_module(&self.program, namespace, &ast.body),
+                "js" => js_codegen_module(&self.program, namespace, &ast.body),
+                _ => {
+                    eprintln!("Expected c or js for generation mode");
+                    std::process::exit(1);
+                }
+            }
+            return Ok(());
+        }
         if self.args.analyze {
             let arities = analyze_program(&self.program);
             for func in ast.functions.iter() {
