@@ -4,6 +4,7 @@ mod interpreter;
 mod intrinsics;
 mod lang;
 mod parser;
+mod program;
 mod repl;
 mod test_analyze;
 mod test_e2e;
@@ -26,10 +27,6 @@ pub struct ReplArgs {
     /// Analyze code instead of type checking
     #[arg(short, long, default_value_t = false)]
     pub analyze: bool,
-
-    /// Keep REPL open after executing files
-    #[arg(short, long, default_value_t = false)]
-    pub interactive: bool,
 
     /// Generate code for the provided file
     #[arg(short, long)]

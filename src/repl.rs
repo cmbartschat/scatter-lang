@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     io::{StdoutLock, Write},
     ops::Not,
     path::{Path, PathBuf},
@@ -7,11 +7,12 @@ use std::{
 
 use crate::{
     ReplArgs,
-    analyze::{AnalysisError, BlockAnalysisResult, analyze},
-    interpreter::Interpreter,
+    analyze::{AnalysisError, BlockAnalysisResult, analyze_block_in_namespace, analyze_program},
+    interpreter::{Interpreter, InterpreterSnapshot},
     intrinsics::get_intrinsics,
-    lang::{ImportLocation, Module},
+    lang::{ImportLocation, ImportNaming, Module},
     parser::parse,
+    program::{NamespaceId, NamespaceImport, Program},
 };
 
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
@@ -32,9 +33,10 @@ fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
 
 pub struct Repl {
     args: ReplArgs,
-    ctx: Interpreter,
+    program: Program,
+    snapshot: InterpreterSnapshot,
     base_path: PathBuf,
-    loaded_paths: HashSet<PathBuf>,
+    loaded_paths: HashMap<PathBuf, NamespaceId>,
 }
 
 type ReplResult = Result<(), &'static str>;
@@ -43,15 +45,22 @@ impl Repl {
     pub fn new(args: ReplArgs, base_path: PathBuf) -> Self {
         Self {
             args,
-            ctx: Interpreter::new(),
+            snapshot: InterpreterSnapshot::default(),
+            program: Program::new(),
             base_path,
-            loaded_paths: HashSet::default(),
+            loaded_paths: HashMap::default(),
         }
     }
 
-    pub fn prepare_code(&mut self, source: &str, context: &Path) -> Result<Module, &'static str> {
+    pub fn prepare_code(
+        &mut self,
+        source: &str,
+        id: NamespaceId,
+        context: &Path,
+    ) -> Result<Module, &'static str> {
         let ast = parse(source)?;
 
+        let mut imports = vec![];
         for import in ast.imports.iter() {
             match &import.location {
                 ImportLocation::Relative(path) => {
@@ -60,75 +69,95 @@ impl Repl {
                         return Err("Import is not a relative path");
                     }
                     let resolved = context.join(path);
-                    self.prepare_dependency(resolved)?;
+                    let dependency_id = self.prepare_dependency(resolved)?;
+                    imports.push(NamespaceImport {
+                        id: dependency_id,
+                        naming: import.naming.clone(),
+                    });
                 }
             }
         }
-
-        self.ctx.load_functions(&ast)?;
+        self.program.add_functions(id, &ast.functions);
+        self.program.add_imports(id, imports);
 
         Ok(ast)
     }
 
-    pub fn prepare_dependency(&mut self, path: PathBuf) -> Result<(), &'static str> {
-        if self.loaded_paths.contains(&path) {
-            return Ok(());
+    pub fn prepare_dependency(&mut self, path: PathBuf) -> Result<NamespaceId, &'static str> {
+        match self.loaded_paths.get(&path) {
+            Some(e) => Ok(*e),
+            None => self.prepare_file(path).map(|e| e.0),
         }
-
-        self.prepare_file(path)?;
-
-        Ok(())
     }
 
-    pub fn prepare_file(&mut self, path: PathBuf) -> Result<Module, &'static str> {
+    pub fn prepare_file(&mut self, path: PathBuf) -> Result<(NamespaceId, Module), &'static str> {
         if !path.is_absolute() {
             return Err("File paths should be absolute");
         }
 
-        self.loaded_paths.insert(path.clone());
+        let id = self.program.allocate_namespace();
+        self.loaded_paths.insert(path.clone(), id);
 
         let source = std::fs::read_to_string(&path).map_err(|_| "Failed to read file")?;
         let context = match path.parent() {
             Some(p) => p,
             None => return Err("Unable to resolve file path context"),
         };
-        let ast = self.prepare_code(&source, context)?;
-        Ok(ast)
+        Ok((id, self.prepare_code(&source, id, context)?))
     }
 
-    pub fn load_code(&mut self, source: &str) -> ReplResult {
+    pub fn load_code(&mut self, id: NamespaceId, source: &str) -> ReplResult {
         let base = self.base_path.clone();
-        let ast = self.prepare_code(source, base.as_path())?;
-        self.consume_ast(ast)
+        let ast = self.prepare_code(source, id, base.as_path())?;
+        self.consume_ast(id, ast)
     }
 
-    fn consume_ast(&mut self, ast: Module) -> ReplResult {
+    fn consume_ast(&mut self, namespace: NamespaceId, ast: Module) -> ReplResult {
         if self.args.analyze {
-            let analysis = analyze(&ast, &self.ctx.functions);
+            let arities = analyze_program(&self.program);
             for func in ast.functions.iter() {
-                report_arity(&func.name, analysis.arities.get(&func.name));
+                report_arity(&func.name, arities[namespace].get(&func.name));
             }
             if ast.body.terms.is_empty().not() {
-                report_arity("<body>", Some(&analysis.body_arity));
+                report_arity(
+                    "<body>",
+                    Some(&analyze_block_in_namespace(
+                        &arities,
+                        namespace,
+                        &ast.body,
+                        &self.program,
+                    )),
+                )
             }
             Ok(())
         } else {
-            self.ctx.enable_stdin();
-            self.ctx.evaluate_block(&ast.body)?;
-            self.ctx.disable_stdin();
+            let mut snap = InterpreterSnapshot::default();
+            std::mem::swap(&mut snap, &mut self.snapshot);
+            let mut interpreter = Interpreter::from_snapshot(snap, &self.program);
+            interpreter.enable_stdin();
+            self.snapshot = interpreter.execute(&ast.body)?;
             Ok(())
         }
     }
 
     pub fn load_file(&mut self, path: &str) -> ReplResult {
-        let ast = self.prepare_file(self.base_path.join(PathBuf::from(path)))?;
-        self.consume_ast(ast)
+        let (namespace_id, ast) = self.prepare_file(self.base_path.join(PathBuf::from(path)))?;
+        self.consume_ast(namespace_id, ast)
     }
 
-    pub fn list(&mut self) -> ReplResult {
+    pub fn list(&mut self, user_namespace: usize) -> ReplResult {
         println!("Available functions:");
-        for (name, _) in self.ctx.functions.iter() {
+        for (name, _) in self.program.namespaces[user_namespace].functions.iter() {
             println!("  {name}");
+        }
+        for import in self.program.namespaces[user_namespace].imports.iter() {
+            match import.naming {
+                ImportNaming::Wildcard => {
+                    for (name, _) in self.program.namespaces[import.id].functions.iter() {
+                        println!("  {}", name);
+                    }
+                }
+            }
         }
         println!("Intrinsics:");
         for (name, _) in get_intrinsics().iter() {
@@ -144,8 +173,8 @@ impl Repl {
     }
 
     fn write_prompt(&self, io: &mut StdoutLock) -> Result<(), std::io::Error> {
-        if !self.ctx.stack.is_empty() {
-            write!(io, "{:?} > ", self.ctx.stack)?;
+        if !self.snapshot.stack.is_empty() {
+            write!(io, "{:?} > ", self.snapshot.stack)?;
         } else {
             write!(io, "> ")?;
         }
@@ -168,27 +197,26 @@ impl Repl {
     }
 
     pub fn run(mut self) -> ReplResult {
-        let interactive = self.args.interactive || self.args.files.is_empty();
+        if !self.args.files.is_empty() {
+            for path in &self.args.files.clone() {
+                self.load_file(path)?;
+            }
 
-        for path in &self.args.files.clone() {
-            self.load_file(path)?;
-        }
-
-        if !interactive {
-            if !self.ctx.stack.is_empty() {
-                println!("{:?}", self.ctx.stack);
+            if !self.snapshot.stack.is_empty() {
+                println!("{:?}", self.snapshot.stack);
             }
             return Ok(());
         }
 
+        let user_namespace = self.program.allocate_namespace();
         loop {
             let command = self.prompt()?;
 
             match command.trim() {
                 "exit" => return Ok(()),
-                "list" => self.list()?,
-                "clear" => self.ctx.stack.clear(),
-                _ => self.load_code(&command)?,
+                "list" => self.list(user_namespace)?,
+                "clear" => self.snapshot.stack.clear(),
+                _ => self.load_code(user_namespace, &command)?,
             };
         }
     }

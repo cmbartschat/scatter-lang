@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic,
-    lang::{Arity, ArityCombineError, Block, Function, Module, Term, Type, Value},
+    lang::{Arity, ArityCombineError, Block, Term, Type, Value},
+    program::{NamespaceId, Program},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,12 +15,14 @@ pub enum AnalysisError {
 
 pub type BlockAnalysisResult = Result<Arity, AnalysisError>;
 
-pub type Arities = HashMap<String, BlockAnalysisResult>;
+pub type NamespaceArities = HashMap<String, BlockAnalysisResult>;
 
-#[derive(Debug)]
-pub struct Analysis {
-    pub arities: Arities,
-    pub body_arity: BlockAnalysisResult,
+pub type AritiesByNamespace = Vec<NamespaceArities>;
+
+pub struct Analysis<'a> {
+    pub arities: AritiesByNamespace,
+    pub namespace: NamespaceId,
+    pub program: &'a Program,
 }
 
 fn block_is_always_truthy(b: &Block) -> Option<bool> {
@@ -29,19 +32,19 @@ fn block_is_always_truthy(b: &Block) -> Option<bool> {
     }
 }
 
-pub fn analyze_condition(arities: &Arities, b: &Block) -> BlockAnalysisResult {
-    Ok(analyze_block(arities, b)?.with_pop(Type::Unknown))
+pub fn analyze_condition(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
+    Ok(analyze_block(analysis, b)?.with_pop(Type::Unknown))
 }
 
-pub fn analyze_block(arities: &Arities, b: &Block) -> BlockAnalysisResult {
+pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
     let mut a = Arity::noop();
     for term in b.terms.iter() {
-        a.serial(&analyze_term(arities, term)?);
+        a.serial(&analyze_term(analysis, term)?);
     }
     Ok(a)
 }
 
-pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
+pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
     match term {
         Term::Literal(t) => Ok(match t {
             Value::String(_) => Arity::literal(Type::String),
@@ -52,11 +55,21 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
             if let Some(a) = get_intrinsic(n) {
                 return Ok(a.arity.clone());
             }
-            match arities.get(n) {
-                Some(Ok(a)) => Ok(a.clone()),
-                None | Some(Err(AnalysisError::Pending)) => Err(AnalysisError::Pending),
-                Some(e) => e.clone(),
-            }
+
+            let Some((resolved_namespace_id, resolved_name)) =
+                analysis.program.resolve_function(analysis.namespace, n)
+            else {
+                return Err(AnalysisError::Pending);
+            };
+
+            let Some(Some(arity_result)) = analysis
+                .arities
+                .get(resolved_namespace_id)
+                .map(|e| e.get(resolved_name))
+            else {
+                return Err(AnalysisError::Pending);
+            };
+            arity_result.clone()
         }
         Term::Branch(branch) => {
             let mut running = Arity::noop();
@@ -81,7 +94,7 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
             };
 
             for arm in branch.arms.iter() {
-                let condition_arity = analyze_condition(arities, &arm.0)?;
+                let condition_arity = analyze_condition(analysis, &arm.0)?;
                 running.serial(&condition_arity);
 
                 let (possible, last_arm) = match block_is_always_truthy(&arm.0) {
@@ -91,7 +104,7 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
                 };
 
                 if possible {
-                    let block_arity = analyze_block(arities, &arm.1)?;
+                    let block_arity = analyze_block(analysis, &arm.1)?;
                     let arity = running.clone().with_serial(&block_arity);
                     add_termination(arity)?;
                 }
@@ -107,15 +120,15 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
         }
         Term::Loop(loop_v) => {
             let pre_arity = if let Some(pre) = &loop_v.pre_condition {
-                Some(analyze_condition(arities, pre)?)
+                Some(analyze_condition(analysis, pre)?)
             } else {
                 None
             };
 
-            let main_arity = analyze_block(arities, &loop_v.body)?;
+            let main_arity = analyze_block(analysis, &loop_v.body)?;
 
             let post_arity = if let Some(post) = &loop_v.post_condition {
-                Some(analyze_condition(arities, post)?)
+                Some(analyze_condition(analysis, post)?)
             } else {
                 None
             };
@@ -174,20 +187,36 @@ pub fn analyze_term(arities: &Arities, term: &Term) -> BlockAnalysisResult {
     }
 }
 
-pub fn analyze(m: &Module, functions: &HashMap<String, Function>) -> Analysis {
-    let mut arities = HashMap::new();
+fn get_arity_at(by_namespace: &mut AritiesByNamespace, i: NamespaceId) -> &mut NamespaceArities {
+    while by_namespace.len() <= i {
+        by_namespace.push(NamespaceArities::new());
+    }
+
+    &mut by_namespace[i]
+}
+
+pub fn analyze_program(program: &Program) -> AritiesByNamespace {
+    let mut analysis = Analysis {
+        arities: AritiesByNamespace::new(),
+        namespace: 0,
+        program,
+    };
 
     loop {
         let mut resolved_something = false;
-        for (_, func) in functions.iter() {
-            if arities.contains_key(&func.name) {
-                continue;
-            }
-            match analyze_block(&arities, &func.body) {
-                Err(AnalysisError::Pending) => {}
-                e => {
-                    resolved_something = true;
-                    arities.insert(func.name.to_owned(), e);
+
+        for (i, namespace) in program.namespaces.iter().enumerate() {
+            analysis.namespace = i;
+            for (_, func) in namespace.functions.iter() {
+                if get_arity_at(&mut analysis.arities, i).contains_key(&func.name) {
+                    continue;
+                }
+                match analyze_block(&analysis, &func.body) {
+                    Err(AnalysisError::Pending) => {}
+                    e => {
+                        resolved_something = true;
+                        get_arity_at(&mut analysis.arities, i).insert(func.name.to_owned(), e);
+                    }
                 }
             }
         }
@@ -197,10 +226,20 @@ pub fn analyze(m: &Module, functions: &HashMap<String, Function>) -> Analysis {
         }
     }
 
-    let body_arity = analyze_block(&arities, &m.body);
+    analysis.arities
+}
 
-    Analysis {
-        arities,
-        body_arity,
-    }
+pub fn analyze_block_in_namespace(
+    arities: &AritiesByNamespace,
+    namespace: NamespaceId,
+    block: &Block,
+    program: &Program,
+) -> BlockAnalysisResult {
+    let analysis = Analysis {
+        arities: arities.clone(),
+        namespace,
+        program,
+    };
+
+    analyze_block(&analysis, block)
 }

@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::intrinsics::{get_c_name, get_intrinsics};
+    use crate::lang::ImportNaming;
+    use crate::program::{NamespaceImport, Program};
     use crate::{interpreter::Interpreter, parser::parse};
 
     static TEST_HELPERS: &str = include_str!("../examples/test.sl");
@@ -10,11 +12,19 @@ mod tests {
     fn e2e() {
         let helpers_ast = parse(TEST_HELPERS).unwrap();
         let ast = parse(E2E_TESTS).unwrap();
-        let mut ctx = Interpreter::new();
-        ctx.load_functions(&helpers_ast).unwrap();
-        ctx.load_functions(&ast).unwrap();
-        ctx.evaluate_block(&ast.body).unwrap();
-        assert_eq!(ctx.stack, vec![]);
+        let mut program = Program::new_from_module(&ast);
+        let helpers_namespace = program.allocate_namespace();
+        program.add_functions(helpers_namespace, &helpers_ast.functions);
+        program.add_imports(
+            0,
+            vec![NamespaceImport {
+                id: helpers_namespace,
+                naming: ImportNaming::Wildcard,
+            }],
+        );
+
+        let ctx = Interpreter::begin(&program);
+        assert_eq!(ctx.execute(&ast.body).unwrap().stack, vec![]);
     }
 
     static SKIPPED_INTRINSICS: [&str; 3] = ["assert", "print", "readline"];

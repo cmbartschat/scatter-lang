@@ -1,40 +1,54 @@
 use std::{
-    collections::HashMap,
     io::{BufRead, StdinLock},
     ops::Not,
 };
 
 use crate::{
     intrinsics::{IntrinsicData, get_intrinsic},
-    lang::{Block, Branch, Function, Loop, Module, Term, Value},
+    lang::{Block, Branch, Loop, Term, Value},
+    program::{NamespaceId, Program},
 };
 
 pub type InterpreterResult = Result<(), &'static str>;
 
 pub type Stack = Vec<Value>;
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     pub stack: Stack,
-    pub functions: HashMap<String, Function>,
+    pub namespace_stack: Vec<NamespaceId>,
+    pub program: &'a Program,
     input: Option<StdinLock<'static>>,
 }
 
-impl Interpreter {
-    pub fn new() -> Self {
+#[derive(Default)]
+pub struct InterpreterSnapshot {
+    pub stack: Stack,
+}
+
+impl<'a> Interpreter<'a> {
+    #[allow(dead_code)]
+    pub fn begin(program: &'a Program) -> Self {
+        Self::from_snapshot(Default::default(), program)
+    }
+
+    pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {
         Self {
-            stack: vec![],
-            functions: HashMap::new(),
-            input: None,
+            stack: snapshot.stack,
+            namespace_stack: vec![],
+            program,
+            input: Some(std::io::stdin().lock()),
         }
     }
+
+    pub fn execute(mut self, block: &Block) -> Result<InterpreterSnapshot, &'static str> {
+        self.evaluate_block(block)?;
+        Ok(InterpreterSnapshot { stack: self.stack })
+    }
+
     pub fn enable_stdin(&mut self) {
         if self.input.is_none() {
             self.input = Some(std::io::stdin().lock());
         }
-    }
-
-    pub fn disable_stdin(&mut self) {
-        self.input = None;
     }
 
     pub fn readline(&mut self) -> Result<Option<String>, &'static str> {
@@ -52,21 +66,6 @@ impl Interpreter {
             }
             None => Err("Cannot read line while stdin is not attached"),
         }
-    }
-
-    pub fn load_functions(&mut self, m: &Module) -> Result<(), &'static str> {
-        for function in &m.functions {
-            if self
-                .functions
-                .insert(function.name.clone(), function.clone())
-                .is_some()
-            {
-                eprintln!("Duplicate function: {}", function.name);
-                return Err("Duplicate function definition");
-            };
-        }
-
-        Ok(())
     }
 
     pub fn take(&mut self) -> Result<Value, &'static str> {
@@ -140,11 +139,7 @@ impl Interpreter {
         }
     }
 
-    pub fn lookup_name(&self, name: &str) -> Option<Function> {
-        self.functions.get(name).cloned()
-    }
-
-    pub fn evaluate_block(&mut self, block: &Block) -> Result<(), &'static str> {
+    fn evaluate_block(&mut self, block: &Block) -> Result<(), &'static str> {
         for term in block.terms.iter() {
             self.evaluate_term(term)?;
         }
@@ -166,11 +161,31 @@ impl Interpreter {
         if let Some(IntrinsicData { func, .. }) = get_intrinsic(name) {
             return func(self);
         };
-        let Some(function) = self.lookup_name(name) else {
-            eprintln!("Unsupported: {}", name);
-            return Err("Unsupported operation");
+
+        let current_namespace: usize = self
+            .namespace_stack
+            .last()
+            .map(|f| f.to_owned())
+            .unwrap_or_default();
+
+        let Some((resolved_namespace, resolved_name)) =
+            self.program.resolve_function(current_namespace, name)
+        else {
+            eprintln!("Failed to resolve function: {}", name);
+            return Err("Unknown function name");
         };
-        self.evaluate_block(&function.body)
+
+        let function = &self.program.namespaces[resolved_namespace].functions[resolved_name];
+
+        if resolved_namespace != current_namespace {
+            self.namespace_stack.push(resolved_namespace);
+            self.evaluate_block(&function.body)?;
+            self.namespace_stack.pop();
+        } else {
+            self.evaluate_block(&function.body)?;
+        }
+
+        Ok(())
     }
 
     fn evaluate_loop(&mut self, l: &Loop) -> InterpreterResult {

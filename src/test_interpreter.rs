@@ -2,12 +2,13 @@
 mod tests {
     use crate::interpreter::{Interpreter, Stack};
     use crate::lang::{Block, Branch, Function, Loop, Module, Term};
+    use crate::program::Program;
 
-    fn interpret(program: Module) -> Stack {
-        let mut ctx = Interpreter::new();
-        ctx.load_functions(&program).expect("Function load error");
-        ctx.evaluate_block(&program.body).expect("Execution error");
-        ctx.stack
+    fn interpret(ast: Module) -> Stack {
+        Interpreter::begin(&Program::new_from_module(&ast))
+            .execute(&ast.body)
+            .unwrap()
+            .stack
     }
 
     #[test]
