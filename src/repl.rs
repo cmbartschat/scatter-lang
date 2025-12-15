@@ -151,10 +151,20 @@ impl Repl {
             println!("  {name}");
         }
         for import in self.program.namespaces[user_namespace].imports.iter() {
-            match import.naming {
+            match &import.naming {
                 ImportNaming::Wildcard => {
                     for (name, _) in self.program.namespaces[import.id].functions.iter() {
                         println!("  {}", name);
+                    }
+                }
+                ImportNaming::Named(names) => {
+                    for name in names.iter() {
+                        println!("  {}", name);
+                    }
+                }
+                ImportNaming::Scoped(prefix) => {
+                    for (name, _) in self.program.namespaces[import.id].functions.iter() {
+                        println!("  {prefix}.{}", name);
                     }
                 }
             }

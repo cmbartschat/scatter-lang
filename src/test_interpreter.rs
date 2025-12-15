@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
     use crate::interpreter::{Interpreter, Stack};
-    use crate::lang::{Block, Branch, Function, Loop, Module, Term};
-    use crate::program::Program;
+    use crate::lang::{Block, Branch, Function, ImportNaming, Loop, Module, Term};
+    use crate::parser::parse;
+    use crate::program::{NamespaceImport, Program};
 
     fn interpret(ast: Module) -> Stack {
         Interpreter::begin(&Program::new_from_module(&ast))
@@ -254,5 +255,48 @@ mod tests {
         let result = interpret(ast);
 
         assert_eq!(result, vec![6765.into()])
+    }
+
+    #[test]
+    fn imports() {
+        let main = parse("helper1 helper2 helper3.helper3").unwrap();
+        let helper1 = parse("helper1: 1").unwrap();
+        let helper2 = parse("helper2: 2").unwrap();
+        let helper3 = parse("helper3: 3").unwrap();
+
+        let mut program = Program::new();
+
+        let main_id = program.allocate_namespace();
+
+        let helper1_id = program.allocate_namespace();
+        program.add_functions(helper1_id, &helper1.functions);
+
+        let helper2_id = program.allocate_namespace();
+        program.add_functions(helper2_id, &helper2.functions);
+
+        let helper3_id = program.allocate_namespace();
+        program.add_functions(helper3_id, &helper3.functions);
+
+        program.add_imports(
+            main_id,
+            vec![
+                NamespaceImport {
+                    id: helper1_id,
+                    naming: ImportNaming::Wildcard,
+                },
+                NamespaceImport {
+                    id: helper2_id,
+                    naming: ImportNaming::Named(vec!["helper2".into()]),
+                },
+                NamespaceImport {
+                    id: helper3_id,
+                    naming: ImportNaming::Scoped("helper3".into()),
+                },
+            ],
+        );
+
+        let interpreter = Interpreter::begin(&program);
+        let result = interpreter.execute(&main.body).unwrap().stack;
+        assert_eq!(result, vec![1.into(), 2.into(), 3.into()])
     }
 }

@@ -82,12 +82,31 @@ impl Program {
         }
 
         for import in current.imports.iter() {
-            match import.naming {
+            match &import.naming {
                 ImportNaming::Wildcard => {
                     if let Some(other_namespace) =
                         self.resolve_function_in_namespace(import.id, name)
                     {
                         return Some(other_namespace);
+                    }
+                }
+                ImportNaming::Named(names) => {
+                    let is_named = names.iter().any(|f| f == name);
+                    if is_named
+                        && let Some(other_namespace) =
+                            self.resolve_function_in_namespace(import.id, name)
+                    {
+                        return Some(other_namespace);
+                    }
+                }
+                ImportNaming::Scoped(prefix) => {
+                    if name.starts_with(prefix) && name[prefix.len()..].starts_with('.') {
+                        let trailing = &name[(prefix.len() + 1)..];
+                        if let Some(other_namespace) =
+                            self.resolve_function_in_namespace(import.id, trailing)
+                        {
+                            return Some(other_namespace);
+                        }
                     }
                 }
             }

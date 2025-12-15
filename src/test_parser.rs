@@ -270,7 +270,70 @@ mod tests {
     }
 
     #[test]
-    fn import() {
+    fn imports_1() {
+        let code = r#"
+# {name1 name2} "./1.sl" 
+# scope "./2.sl"
+# * "./3.sl"
+        "#;
+
+        let ast = Module {
+            imports: vec![
+                Import {
+                    naming: ImportNaming::Named(vec!["name1".into(), "name2".into()]),
+                    location: ImportLocation::Relative("./1.sl".into()),
+                },
+                Import {
+                    naming: ImportNaming::Scoped("scope".into()),
+                    location: ImportLocation::Relative("./2.sl".into()),
+                },
+                Import {
+                    naming: ImportNaming::Wildcard,
+                    location: ImportLocation::Relative("./3.sl".into()),
+                },
+            ],
+            ..Default::default()
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn imports_2() {
+        let code = r#"
+# {name1 name2} "./1.sl" 
+        "#;
+
+        let ast = Module {
+            imports: vec![Import {
+                naming: ImportNaming::Named(vec!["name1".into(), "name2".into()]),
+                location: ImportLocation::Relative("./1.sl".into()),
+            }],
+            ..Default::default()
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn imports_3() {
+        let code = r#"
+# scope "./2.sl"
+        "#;
+
+        let ast = Module {
+            imports: vec![Import {
+                naming: ImportNaming::Scoped("scope".into()),
+                location: ImportLocation::Relative("./2.sl".into()),
+            }],
+            ..Default::default()
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn imports_4() {
         let code = r#"
 # * "./3.sl"
         "#;

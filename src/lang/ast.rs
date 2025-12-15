@@ -52,6 +52,8 @@ pub struct Function {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ImportNaming {
     Wildcard,
+    Named(Vec<String>),
+    Scoped(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

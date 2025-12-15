@@ -222,6 +222,19 @@ fn parse_import(tokens: &mut Tokens) -> ParseResult<Import> {
 
     let naming: ImportNaming = match first {
         Token::Name(n) if n == "*" => ImportNaming::Wildcard,
+        Token::Name(n) => ImportNaming::Scoped(n),
+        Token::Symbol(Symbol::CurlyOpen) => {
+            let mut names = vec![];
+            loop {
+                match tokens.next() {
+                    None => return Err("End of file during import"),
+                    Some(Token::Symbol(Symbol::CurlyClose)) => break,
+                    Some(Token::Name(n)) => names.push(n),
+                    _ => todo!(),
+                }
+            }
+            ImportNaming::Named(names)
+        }
         _ => return Err("Unexpected expression in import"),
     };
 
