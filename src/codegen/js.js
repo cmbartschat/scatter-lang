@@ -212,3 +212,17 @@ function printStack() {
   }
   console.log(STATE.values)
 }
+
+function to_char() {
+  assertStackHas(1)
+  const top = readStackString(-1)
+  if (top.length !== 1) {
+    throw TYPE_MISMATCH
+  }
+  storeStack(-1, top.charCodeAt(0))
+}
+
+function from_char() {
+  assertStackHas(1)
+  storeStack(-1, String.fromCharCode(readStackNumber(-1)))
+}

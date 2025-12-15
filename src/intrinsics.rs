@@ -115,6 +115,33 @@ fn length(i: &mut Interpreter) -> InterpreterResult {
     i.push(s.len() as f64)
 }
 
+fn to_char(i: &mut Interpreter) -> InterpreterResult {
+    let s = i.take_string()?;
+    if s.len() != 1 {
+        return Err("to_ascii only works on strings with length: 1");
+    }
+    let byte = s.bytes().next().unwrap();
+    i.push(byte as f64)
+}
+
+fn from_char(i: &mut Interpreter) -> InterpreterResult {
+    let s = i.take_number()?;
+    if s.fract() != 0f64 {
+        return Err("from_char only works with integers");
+    }
+    if !s.is_finite() {
+        return Err("from_char only works with normal numbers");
+    }
+    let v = s as u32;
+    if !(0..=u8::MAX as u32).contains(&v) {
+        return Err("from_char only works with numbers 0-255");
+    }
+    let Some(char) = char::from_u32(v) else {
+        return Err("Unexpected ");
+    };
+    i.push(format!("{char}"))
+}
+
 fn equals(i: &mut Interpreter) -> InterpreterResult {
     match i.take2()? {
         (Value::Number(a), Value::Number(b)) => i.push(a == b),
@@ -190,6 +217,8 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ("print", Arity::in_out(1, 0), print),
         ("readline", Arity::push_two(S, B), readline),
         ("substring", Arity::binary(N, N, S).with_pop(S), substring),
+        ("to_char", Arity::unary(S, N), to_char),
+        ("from_char", Arity::unary(N, S), from_char),
         ("join", Arity::binary(U, U, S), join),
         ("length", Arity::unary(S, N), length),
         ("assert", Arity::noop().with_pop(S).with_pop(U), assert),

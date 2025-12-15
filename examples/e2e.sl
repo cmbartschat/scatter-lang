@@ -103,6 +103,16 @@ end_suite
 "" -4 5 substring "" should_equal
 end_suite
 
+"to_char" start_suite
+"a" to_char 97 should_equal
+"A" to_char 65 should_equal
+end_suite
+
+"from_char" start_suite
+97 from_char "a" should_equal
+65 from_char "A" should_equal
+end_suite
+
 "length" start_suite
 "hello world" length 11 should_equal
 "" length 0 should_equal

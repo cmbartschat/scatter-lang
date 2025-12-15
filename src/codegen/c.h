@@ -661,3 +661,32 @@ status_t readline() {
   checked(push_true_literal());
   return OK;
 }
+
+status_t to_char() {
+  assert_stack_has(1);
+  stack_read_string(source, -1);
+  if (source->len != 1) {
+    return TYPE_MISMATCH;
+  }
+  stack_at(-1) = source->data[0] - '\0';
+  dec_string_ref_count(source);
+  return OK;
+}
+
+status_t from_char() {
+  assert_stack_has(1);
+  stack_read_number(code, -1);
+
+  uint64_t string_index;
+  checked(find_string_source_slot(&string_index));
+  string_source_t *res = STATE.strings + string_index;
+
+  char *data = malloc(1);
+  data[0] = '\0' + code;
+  res->data = data;
+  res->len = 1;
+  res->owned = 1;
+  res->refs = 1;
+
+  stack_at(-1) = string_index_to_value(string_index);
+}
