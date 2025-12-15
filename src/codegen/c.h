@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,6 +35,7 @@ static const status_t ASSERT_FAILED = 105;
 static const status_t NOT_IMPLEMENTED = 201;
 static const status_t DATA_CORRUPTED = 202;
 static const status_t STRING_TOO_LONG = 203;
+static const status_t STDIN_FAILED = 204;
 
 static char SCRATCH_A[100];
 static char SCRATCH_B[100];
@@ -621,5 +623,41 @@ status_t push_string_literal(const char *data, size_t len) {
 
   stack_at(0) = string_index_to_value(string_index);
   STATE.value_count++;
+  return OK;
+}
+
+status_t readline() {
+  char *line = NULL;
+  size_t buffer_size = 0;
+  ssize_t len = getline(&line, &buffer_size, stdin);
+  int err = errno;
+
+  if (len == -1) {
+    free(line);
+    if (err) {
+      return STDIN_FAILED;
+    }
+    checked(push_string_literal("", 0));
+    checked(push_false_literal());
+    return OK;
+  }
+
+  uint64_t string_index;
+  checked(find_string_source_slot(&string_index));
+  string_source_t *res = STATE.strings + string_index;
+
+  if (len > 0 && line[len - 1] == '\n') {
+    len--;
+  }
+
+  res->data = line;
+  res->len = len;
+  res->owned = 1;
+  res->refs = 1;
+
+  stack_at(0) = string_index_to_value(string_index);
+  STATE.value_count++;
+
+  checked(push_true_literal());
   return OK;
 }

@@ -19,10 +19,14 @@ fn maybe_mangle<'a>(v: &'a str) -> Cow<'a, str> {
 fn codegen_loop_condition(target: &mut CodegenTarget, block: &Option<Block>) {
     if let Some(e) = block {
         codegen_block(target, e);
+        target.write_line("{");
+        target.increase_indent();
         target.write_line("int c;");
         target.write_line("checked(check_condition(&c));");
         target.write_line("if (!c) {");
         target.write_line("  break;");
+        target.write_line("}");
+        target.decrease_indent();
         target.write_line("}");
     }
 }

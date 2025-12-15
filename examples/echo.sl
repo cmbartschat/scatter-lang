@@ -1,7 +1,15 @@
 echo: {
   [
     "say something:" print
-    "you typed: " readline "!" join join print
+    readline
+    {
+      (dup)
+        swap
+        "you typed: " swap join
+        "!" join print
+      (1) swap drop
+    }
+    ()
   ]
 }
 
