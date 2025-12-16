@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::interpreter::Interpreter;
-    use crate::lang::{Block, Branch, Function, ImportNaming, Loop, Module, Term};
+    use crate::lang::{Block, Branch, Function, ImportNaming, Loop, Module, OwnedValue, Term};
     use crate::parser::parse;
     use crate::program::{NamespaceImport, Program};
 
-    fn interpret(ast: Module) -> Vec<Term> {
+    fn interpret(ast: Module) -> Vec<OwnedValue> {
         Interpreter::begin(&Program::new_from_module(&ast))
             .execute(&ast.body)
             .unwrap()

@@ -3,8 +3,6 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::lang::Term;
-
 #[derive(Clone, PartialEq)]
 pub enum Value<'a> {
     String(Cow<'a, str>),
@@ -28,12 +26,6 @@ impl<'a> From<i32> for Value<'a> {
     }
 }
 
-impl<'a> From<&Value<'a>> for Value<'a> {
-    fn from(value: &Value<'a>) -> Self {
-        value.to_owned()
-    }
-}
-
 impl<'a> From<bool> for Value<'a> {
     fn from(value: bool) -> Self {
         Value::Bool(value)
@@ -43,12 +35,6 @@ impl<'a> From<bool> for Value<'a> {
 impl<'a> From<f64> for Value<'a> {
     fn from(value: f64) -> Self {
         Value::Number(value)
-    }
-}
-
-impl<'a> From<&'a str> for Value<'a> {
-    fn from(value: &'a str) -> Self {
-        Value::String(value.into())
     }
 }
 
@@ -74,31 +60,6 @@ impl<'a> Display for Value<'a> {
         match self {
             Self::String(s) => Display::fmt(s, f),
             _ => Debug::fmt(&self, f),
-        }
-    }
-}
-
-impl TryFrom<&Term> for Value<'static> {
-    type Error = ();
-
-    fn try_from(value: &Term) -> Result<Self, Self::Error> {
-        match value {
-            Term::String(l) => Ok(l.to_owned().into()),
-            Term::Number(l) => Ok((*l).into()),
-            Term::Bool(l) => Ok((*l).into()),
-            Term::Name(_) => Err(()),
-            Term::Branch(_) => Err(()),
-            Term::Loop(_) => Err(()),
-        }
-    }
-}
-
-impl<'a> From<Value<'a>> for Term {
-    fn from(val: Value<'a>) -> Self {
-        match val {
-            Value::String(cow) => Term::String(cow.into_owned()),
-            Value::Number(l) => l.into(),
-            Value::Bool(l) => l.into(),
         }
     }
 }

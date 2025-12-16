@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     intrinsics::{IntrinsicData, get_intrinsic},
-    lang::{Block, Branch, Loop, Term, Value},
+    lang::{Block, Branch, Loop, OwnedValue, Term, Value},
     program::{NamespaceId, Program},
 };
 
@@ -21,7 +21,7 @@ pub struct Interpreter<'a> {
 
 #[derive(Default)]
 pub struct InterpreterSnapshot {
-    pub stack: Vec<Term>,
+    pub stack: Vec<OwnedValue>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -32,11 +32,7 @@ impl<'a> Interpreter<'a> {
 
     pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {
         Self {
-            stack: snapshot
-                .stack
-                .into_iter()
-                .map(|f| TryInto::<Value>::try_into(&f).expect("Invalid term in snapshot"))
-                .collect(),
+            stack: snapshot.stack.into_iter().map(|f| f.into()).collect(),
             namespace_stack: vec![],
             program,
             input: Some(std::io::stdin().lock()),

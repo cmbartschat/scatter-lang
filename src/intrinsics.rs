@@ -174,7 +174,7 @@ fn readline(i: &mut Interpreter) -> InterpreterResult {
 }
 
 fn assert(i: &mut Interpreter) -> InterpreterResult {
-    let message = i.take()?;
+    let message = i.take_string()?;
     if !i.take()?.is_truthy() {
         eprintln!("Assertion failed: {}", message);
         Err("Assertion failed")
