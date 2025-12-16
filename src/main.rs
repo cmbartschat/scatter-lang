@@ -11,7 +11,6 @@ mod test_e2e;
 mod test_interpreter;
 mod test_parser;
 mod tokenizer;
-
 use clap::Parser;
 
 use crate::repl::Repl;

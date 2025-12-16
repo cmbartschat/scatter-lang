@@ -8,7 +8,7 @@ use std::{
 use crate::{
     ReplArgs,
     analyze::{AnalysisError, BlockAnalysisResult, analyze_block_in_namespace, analyze_program},
-    codegen::{c::c_codegen_module, js::js_codegen_module},
+    codegen::{c::c_codegen_module, js::js_codegen_module, rs::rs_codegen_module},
     interpreter::{Interpreter, InterpreterSnapshot},
     intrinsics::{IntrinsicData, get_intrinsics},
     lang::{ImportLocation, ImportNaming, Module},
@@ -118,6 +118,7 @@ impl Repl {
             match lang.as_str() {
                 "c" => c_codegen_module(&self.program, namespace, &ast.body),
                 "js" => js_codegen_module(&self.program, namespace, &ast.body),
+                "rs" => rs_codegen_module(&self.program, namespace, &ast.body),
                 _ => {
                     eprintln!("Expected c or js for generation mode");
                     std::process::exit(1);

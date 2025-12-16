@@ -69,6 +69,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    // Codegen Interpreter Start
     pub fn take(&mut self) -> Result<Value<'a>, &'static str> {
         match self.stack.pop() {
             Some(a) => Ok(a),
@@ -139,6 +140,8 @@ impl<'a> Interpreter<'a> {
             _ => Err("Expected two numbers on top of stack"),
         }
     }
+
+    // Codegen Interpreter End
 
     fn evaluate_block(&mut self, block: &'a Block) -> Result<(), &'static str> {
         for term in block.terms.iter() {

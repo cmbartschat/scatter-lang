@@ -1,4 +1,4 @@
-use std::{ops::Not, sync::OnceLock};
+use std::sync::OnceLock;
 
 use crate::{
     interpreter::{Interpreter, InterpreterResult},
@@ -7,6 +7,7 @@ use crate::{
 
 type Intrinsic = fn(&mut Interpreter) -> InterpreterResult;
 
+// Codegen Intrinsics Start
 fn plus(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2_numbers()?;
     i.push(a + b)
@@ -32,17 +33,17 @@ fn modulo(i: &mut Interpreter) -> InterpreterResult {
     i.push(a % b)
 }
 
-fn pow(i: &mut Interpreter) -> InterpreterResult {
+fn pow_i(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2_numbers()?;
     i.push(a.powf(b))
 }
 
-fn or(i: &mut Interpreter) -> InterpreterResult {
+fn or_i(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2()?;
     i.push(if a.is_truthy() { a } else { b })
 }
 
-fn and(i: &mut Interpreter) -> InterpreterResult {
+fn and_i(i: &mut Interpreter) -> InterpreterResult {
     let (a, b) = i.take2()?;
     i.push(if a.is_truthy() { b } else { a })
 }
@@ -84,7 +85,7 @@ fn less(i: &mut Interpreter) -> InterpreterResult {
 
 fn not(i: &mut Interpreter) -> InterpreterResult {
     let v = i.take()?;
-    i.push(v.is_truthy().not())
+    i.push(!v.is_truthy())
 }
 
 fn decrement(i: &mut Interpreter) -> InterpreterResult {
@@ -142,7 +143,7 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
     i.push(format!("{char}"))
 }
 
-fn index(i: &mut Interpreter) -> InterpreterResult {
+fn string_index(i: &mut Interpreter) -> InterpreterResult {
     let needle = i.take_string()?;
     let haystack = i.take_string()?;
     let location = haystack.find(&*needle).map(|e| e as f64).unwrap_or(-1f64);
@@ -182,6 +183,7 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
         Ok(())
     }
 }
+// Codegen Intrinsics End
 
 type RawIntrinsic = (&'static str, Arity, Intrinsic);
 
@@ -213,9 +215,9 @@ fn get_intrinsic_data() -> IntrinsicsData {
         ("*", Arity::number_binary(), times),
         ("/", Arity::number_binary(), divide),
         ("%", Arity::number_binary(), modulo),
-        ("**", Arity::number_binary(), pow),
-        ("||", Arity::generic_1(2, (0, 1)), or),
-        ("&&", Arity::generic_1(2, (0, 1)), and),
+        ("**", Arity::number_binary(), pow_i),
+        ("||", Arity::generic_1(2, (0, 1)), or_i),
+        ("&&", Arity::generic_1(2, (0, 1)), and_i),
         ("swap", Arity::generic_2(2, 0, 1), swap),
         ("dup", Arity::generic_2(1, 0, 0), dup),
         ("over", Arity::generic_3(2, 1, 0, 1), over),
@@ -226,7 +228,7 @@ fn get_intrinsic_data() -> IntrinsicsData {
         ("substring", Arity::binary(N, N, S).with_pop(S), substring),
         ("to_char", Arity::unary(S, N), to_char),
         ("from_char", Arity::unary(N, S), from_char),
-        ("index", Arity::binary(S, S, N), index),
+        ("index", Arity::binary(S, S, N), string_index),
         ("join", Arity::binary(U, U, S), join),
         ("length", Arity::unary(S, N), length),
         ("assert", Arity::noop().with_pop(S).with_pop(U), assert),
