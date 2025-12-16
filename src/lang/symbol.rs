@@ -11,6 +11,7 @@ pub enum Symbol {
     SquareClose,
     LineEnd,
     Hash,
+    At,
 }
 
 impl Debug for Symbol {
@@ -24,6 +25,7 @@ impl Debug for Symbol {
             Self::SquareOpen => '[',
             Self::SquareClose => ']',
             Self::Hash => '#',
+            Self::At => '@',
             Self::LineEnd => '␤',
         })
     }

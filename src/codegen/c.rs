@@ -46,6 +46,10 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
         Term::Name(n) => ctx
             .target
             .write_line(&format!("checked({}());", ctx.resolve_name_reference(n))),
+        Term::Address(n) => ctx.target.write_line(&format!(
+            "checked(push_fn_address(&{}));",
+            ctx.resolve_name_reference(n)
+        )),
         Term::Branch(branch) => {
             branch.arms.iter().for_each(|arm| {
                 codegen_block(ctx, &arm.0);

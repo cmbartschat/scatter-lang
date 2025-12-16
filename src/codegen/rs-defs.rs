@@ -22,11 +22,14 @@ type ExecutionError = &'static str;
 
 type InterpreterResult = Result<(), ExecutionError>;
 
-#[derive(Clone, PartialEq)]
-pub enum Value {
+type Operation = fn(&mut Interpreter) -> InterpreterResult;
+
+#[derive(Clone)]
+enum Value {
     String(Cow<'static, str>),
     Number(f64),
     Bool(bool),
+    Address(&'static Operation),
 }
 
 impl Debug for Value {
@@ -36,6 +39,7 @@ impl Debug for Value {
             Self::Number(s) => Display::fmt(s, f),
             Self::Bool(true) => f.write_str("true"),
             Self::Bool(false) => f.write_str("false"),
+            Self::Address(a) => f.write_str("Address"),
         }
     }
 }
@@ -55,6 +59,7 @@ impl Value {
             Value::String(s) => !s.is_empty(),
             Value::Number(v) => !v.is_nan() && *v != 0f64,
             Value::Bool(b) => *b,
+            Value::Address(_) => true,
         }
     }
 }
@@ -80,6 +85,12 @@ impl From<bool> for Value {
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
         Self::Number(value.into())
+    }
+}
+
+impl From<&'static Operation> for Value {
+    fn from(value: &'static Operation) -> Self {
+        Self::Address(value)
     }
 }
 
@@ -120,5 +131,12 @@ impl Interpreter {
             println!("{:?}", self.stack);
         }
         Ok(())
+    }
+}
+
+fn eval_i(i: &mut Interpreter) -> InterpreterResult {
+    match i.take()? {
+        Value::Address(f) => f(i),
+        _ => Err("Expected function pointer on top of stack"),
     }
 }

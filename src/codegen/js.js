@@ -226,3 +226,10 @@ function string_index() {
   storeStack(-2, haystack.indexOf(needle))
   drop()
 }
+
+function eval_i() {
+  assertStackHas(1)
+  const fn = readStack(-1)
+  drop()
+  fn()
+}

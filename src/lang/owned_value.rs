@@ -7,6 +7,7 @@ pub enum OwnedValue {
     String(String),
     Number(f64),
     Bool(bool),
+    Address(usize, String),
 }
 
 impl<'a> From<Value<'a>> for OwnedValue {
@@ -15,6 +16,7 @@ impl<'a> From<Value<'a>> for OwnedValue {
             Value::String(v) => OwnedValue::String(v.into()),
             Value::Number(v) => OwnedValue::Number(v),
             Value::Bool(v) => OwnedValue::Bool(v),
+            Value::Address(n, name) => OwnedValue::Address(n, name),
         }
     }
 }
@@ -25,6 +27,7 @@ impl<'a> From<&OwnedValue> for Value<'a> {
             OwnedValue::String(v) => Value::String(v.to_string().into()),
             OwnedValue::Number(v) => Value::Number(*v),
             OwnedValue::Bool(v) => Value::Bool(*v),
+            OwnedValue::Address(n, name) => Value::Address(*n, name.to_string()),
         }
     }
 }
@@ -35,6 +38,7 @@ impl<'a> From<OwnedValue> for Value<'a> {
             OwnedValue::String(v) => Value::String(v.into()),
             OwnedValue::Number(v) => Value::Number(v),
             OwnedValue::Bool(v) => Value::Bool(v),
+            OwnedValue::Address(n, name) => Value::Address(n, name),
         }
     }
 }

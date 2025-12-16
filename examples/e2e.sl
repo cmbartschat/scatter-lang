@@ -352,4 +352,10 @@ constant 300 should_equal
 noop
 end_suite
 
+// Function address
+"eval" start_suite
+1 1 @+ eval 2 should_equal
+@double_increment 3 swap eval 5 should_equal
+end_suite
+
 "all passed." print

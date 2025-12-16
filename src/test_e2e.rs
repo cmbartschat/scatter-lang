@@ -64,21 +64,25 @@ mod tests {
         static JS_DEFINITIONS: &'static str = include_str!("./codegen/js.js");
 
         let js_exceptions = ["readline"];
+        let c_exceptions = [];
 
         for name in get_intrinsics()
             .iter()
             .map(|f| get_intrinsic_codegen_name(f.name).unwrap())
         {
-            assert!(
+            let c_should_have = !c_exceptions.contains(&name);
+            assert_eq!(
+                c_should_have,
                 C_DEFINITIONS.contains(&format!("status_t {name}(void) {{")),
                 "defined by c: {name}",
             );
-            if !js_exceptions.contains(&name) {
-                assert!(
-                    JS_DEFINITIONS.contains(&format!("function {name}() {{")),
-                    "defined by js: {name}",
-                );
-            }
+
+            let js_should_have = !js_exceptions.contains(&name);
+            assert_eq!(
+                js_should_have,
+                JS_DEFINITIONS.contains(&format!("function {name}() {{")),
+                "defined by js: {name}",
+            );
         }
     }
 }

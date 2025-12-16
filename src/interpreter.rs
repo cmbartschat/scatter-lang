@@ -143,6 +143,32 @@ impl<'a> Interpreter<'a> {
 
     // Codegen Interpreter End
 
+    fn get_current_namespace(&self) -> usize {
+        self.namespace_stack
+            .last()
+            .map(|f| f.to_owned())
+            .unwrap_or_default()
+    }
+
+    pub fn evaluate_namespaced_function(
+        &mut self,
+        namespace: NamespaceId,
+        name: &str,
+    ) -> InterpreterResult {
+        let function = &self.program.namespaces[namespace].functions[name];
+        let current_namespace = self.get_current_namespace();
+
+        if namespace != current_namespace {
+            self.namespace_stack.push(namespace);
+            self.evaluate_block(&function.body)?;
+            self.namespace_stack.pop();
+        } else {
+            self.evaluate_block(&function.body)?;
+        }
+
+        Ok(())
+    }
+
     fn evaluate_block(&mut self, block: &'a Block) -> Result<(), &'static str> {
         for term in block.terms.iter() {
             self.evaluate_term(term)?;
@@ -166,16 +192,12 @@ impl<'a> Interpreter<'a> {
             return func(self);
         };
 
-        let current_namespace: usize = self
-            .namespace_stack
-            .last()
-            .map(|f| f.to_owned())
-            .unwrap_or_default();
+        let current_namespace = self.get_current_namespace();
 
         let Some((resolved_namespace, resolved_name)) =
             self.program.resolve_function(current_namespace, name)
         else {
-            eprintln!("Failed to resolve function: {}", name);
+            eprintln!("Failed to resolve function: [{:?}]", name);
             return Err("Unknown function name");
         };
 
@@ -216,6 +238,11 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn evaluate_address(&mut self, name: &str) -> InterpreterResult {
+        let current_namespace = self.get_current_namespace();
+        self.push(Value::Address(current_namespace, name.into()))
+    }
+
     fn evaluate_term(&mut self, term: &'a Term) -> InterpreterResult {
         match term {
             Term::String(l) => self.push(Value::String(l.into())),
@@ -224,6 +251,7 @@ impl<'a> Interpreter<'a> {
             Term::Name(name) => self.evaluate_name(name),
             Term::Branch(b) => self.evaluate_branch(b),
             Term::Loop(l) => self.evaluate_loop(l),
+            Term::Address(s) => self.evaluate_address(s),
         }
     }
 }

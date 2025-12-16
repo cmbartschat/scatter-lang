@@ -9,6 +9,8 @@ typedef int status_t;
 
 typedef double value_t;
 
+typedef status_t operation_t(void);
+
 typedef struct {
   const char *data;
   int owned;
@@ -594,6 +596,14 @@ status_t push_number_literal(value_t v) {
   return OK;
 }
 
+status_t push_fn_address(operation_t *v) {
+  assert_stack_capacity(1);
+  value_t fn = (value_t)(uint64_t)v;
+  stack_at(0) = fn;
+  STATE.value_count++;
+  return OK;
+}
+
 status_t push_true_literal(void) {
   assert_stack_capacity(1);
   stack_at(0) = TRUE_V;
@@ -716,4 +726,12 @@ status_t string_index(void) {
   dec_string_ref_count(needle);
   dec_string_ref_count(haystack);
   return OK;
+}
+
+status_t eval_i(void) {
+  assert_stack_has(1);
+  stack_read(v, -1);
+  operation_t *operation1 = (operation_t *)(uint64_t)v;
+  STATE.value_count--;
+  return operation1();
 }

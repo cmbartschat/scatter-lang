@@ -8,6 +8,7 @@ pub enum Value<'a> {
     String(Cow<'a, str>),
     Number(f64),
     Bool(bool),
+    Address(usize, String),
 }
 
 impl<'a> Value<'a> {
@@ -16,6 +17,7 @@ impl<'a> Value<'a> {
             Value::String(s) => !s.is_empty(),
             Value::Number(v) => !v.is_nan() && *v != 0f64,
             Value::Bool(b) => *b,
+            Value::Address(_, _) => true,
         }
     }
 }
@@ -51,6 +53,7 @@ impl<'a> Debug for Value<'a> {
             Self::Number(s) => Display::fmt(s, f),
             Self::Bool(true) => f.write_str("true"),
             Self::Bool(false) => f.write_str("false"),
+            Self::Address(ns, name) => write!(f, "Fn[{ns}, {name}]"),
         }
     }
 }

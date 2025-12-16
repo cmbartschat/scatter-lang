@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use crate::{
+    analyze::AnalysisError,
     interpreter::{Interpreter, InterpreterResult},
     lang::{Arity, Type, Value},
 };
@@ -185,11 +186,23 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
 }
 // Codegen Intrinsics End
 
+fn eval_i(i: &mut Interpreter) -> InterpreterResult {
+    match i.take()? {
+        Value::Address(namespace, name) => {
+            if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
+                return func(i);
+            };
+            i.evaluate_namespaced_function(namespace, &name)
+        }
+        _ => Err("Expected function pointer on top of stack"),
+    }
+}
+
 type RawIntrinsic = (&'static str, Arity, Intrinsic);
 
 pub struct IntrinsicData {
     pub name: &'static str,
-    pub arity: Arity,
+    arity: Arity,
     pub func: Intrinsic,
 }
 
@@ -232,6 +245,7 @@ fn get_intrinsic_data() -> IntrinsicsData {
         ("join", Arity::binary(U, U, S), join),
         ("length", Arity::unary(S, N), length),
         ("assert", Arity::noop().with_pop(S).with_pop(U), assert),
+        ("eval", Arity::noop(), eval_i),
         (">", Arity::binary(N, N, B), greater),
         ("<", Arity::binary(N, N, B), less),
         ("!", Arity::unary(U, B), not),
@@ -260,7 +274,7 @@ fn hash_name(name: &str) -> usize {
     let f1 = b.next().unwrap_or_default();
     let f2 = b.next().unwrap_or_default();
 
-    (f1 as usize * 3333 + f2 as usize * 70) % LOOKUP_TABLE_SIZE
+    (f1 as usize * 300 + f2 as usize) % LOOKUP_TABLE_SIZE
 }
 
 fn create_lookup_table() -> Vec<Option<&'static IntrinsicData>> {
@@ -303,6 +317,7 @@ pub fn get_intrinsic_codegen_name(name: &str) -> Option<&'static str> {
     Some(match get_intrinsic(name).map(|e| e.name)? {
         "+" => "plus",
         "index" => "string_index",
+        "eval" => "eval_i",
         "-" => "minus",
         "*" => "times",
         "/" => "divide",
@@ -318,4 +333,12 @@ pub fn get_intrinsic_codegen_name(name: &str) -> Option<&'static str> {
         "==" => "equals",
         t => t,
     })
+}
+
+pub fn get_intrinsic_arity(name: &str) -> Result<Option<&'static Arity>, AnalysisError> {
+    if name == "eval" {
+        return Err(AnalysisError::IndefiniteSize);
+    }
+
+    Ok(get_intrinsic(name).map(|f| &f.arity))
 }

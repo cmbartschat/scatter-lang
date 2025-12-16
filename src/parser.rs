@@ -64,6 +64,13 @@ fn consume_block_terms(
             Some(Token::Symbol(s)) => match s {
                 Symbol::LineEnd => {}
                 Symbol::Hash => return Err("Unexpected # in block"),
+                Symbol::At => match tokens.peek() {
+                    Some(Token::Name(n)) => {
+                        target.push(Term::Address(n.clone()));
+                        tokens.next();
+                    }
+                    _ => return Err("Expected name after @"),
+                },
                 Symbol::Colon => return Err("Unexpected : in block"),
                 Symbol::CurlyClose => return Ok(Some(BlockEndSymbol::CurlyClose)),
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens)?)),
@@ -272,6 +279,13 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
             }
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => {}
+                Symbol::At => match tokens.peek() {
+                    Some(Token::Name(n)) => {
+                        module.body.terms.push(Term::Address(n.clone()));
+                        tokens.next();
+                    }
+                    _ => return Err("Expected name after @"),
+                },
                 Symbol::Hash => module.imports.push(parse_import(tokens)?),
                 Symbol::Colon => return Err("Unexpected : in module"),
                 Symbol::ParenClose => return Err("Unexpected ) in module"),

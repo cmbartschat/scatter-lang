@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    intrinsics::{IntrinsicData, get_intrinsic},
+    intrinsics::get_intrinsic_arity,
     lang::{Arity, ArityCombineError, Block, Term, Type},
     program::{NamespaceId, Program},
 };
@@ -52,8 +52,9 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
         Term::String(_) => Ok(Arity::literal(Type::String)),
         Term::Number(_) => Ok(Arity::literal(Type::Number)),
         Term::Bool(_) => Ok(Arity::literal(Type::Bool)),
+        Term::Address(_) => Ok(Arity::literal(Type::Address)),
         Term::Name(n) => {
-            if let Some(IntrinsicData { arity, .. }) = get_intrinsic(n) {
+            if let Some(arity) = get_intrinsic_arity(n)? {
                 return Ok(arity.clone());
             }
 

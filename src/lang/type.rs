@@ -3,6 +3,7 @@ pub enum Type {
     Bool,
     Number,
     String,
+    Address,
     Unknown,
 }
 
@@ -23,6 +24,7 @@ impl Type {
             Type::Number => "n",
             Type::String => "s",
             Type::Unknown => "u",
+            Type::Address => "a",
         }
     }
 

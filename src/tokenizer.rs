@@ -107,6 +107,7 @@ pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
                         state = ParseState::comment();
                     }
                     ':' => do_symbol(&mut tokens, word, Symbol::Colon),
+                    '@' => do_symbol(&mut tokens, word, Symbol::At),
                     '{' => do_symbol(&mut tokens, word, Symbol::CurlyOpen),
                     '}' => do_symbol(&mut tokens, word, Symbol::CurlyClose),
                     '(' => do_symbol(&mut tokens, word, Symbol::ParenOpen),

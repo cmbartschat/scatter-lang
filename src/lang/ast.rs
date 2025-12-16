@@ -3,6 +3,7 @@ pub enum Term {
     String(String),
     Number(f64),
     Bool(bool),
+    Address(String),
     Name(String),
     Branch(Branch),
     Loop(Loop),

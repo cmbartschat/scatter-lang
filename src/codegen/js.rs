@@ -31,6 +31,9 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
         Term::Number(e) => ctx.target.write_line(&format!("push({})", e)),
         Term::Bool(true) => ctx.target.write_line("push(true)"),
         Term::Bool(false) => ctx.target.write_line("push(false)"),
+        Term::Address(name) => ctx
+            .target
+            .write_line(&format!("push({})", ctx.resolve_name_reference(name))),
         Term::Name(n) => ctx
             .target
             .write_line(&format!("{}()", ctx.resolve_name_reference(n))),
