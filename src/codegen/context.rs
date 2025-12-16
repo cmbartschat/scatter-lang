@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     codegen::target::CodegenTarget,
-    intrinsics::{get_c_name, get_intrinsic},
+    intrinsics::get_intrinsic_codegen_name,
     program::{NamespaceId, Program},
 };
 
@@ -17,16 +17,16 @@ impl<'a> CodegenContext<'a> {
         Cow::Owned(format!("user_fn_{}_{}", namespace, v))
     }
     pub fn get_scoped_name(&self, v: &'a str) -> Cow<'a, str> {
-        if get_intrinsic(v).is_some() {
-            Cow::Borrowed(get_c_name(v))
+        if let Some(codegen_name) = get_intrinsic_codegen_name(v) {
+            Cow::Borrowed(codegen_name)
         } else {
             Self::scoped_name(self.namespace, v)
         }
     }
 
     pub fn resolve_name_reference(&self, v: &'a str) -> Cow<'a, str> {
-        if get_intrinsic(v).is_some() {
-            Cow::Borrowed(get_c_name(v))
+        if let Some(codegen_name) = get_intrinsic_codegen_name(v) {
+            Cow::Borrowed(codegen_name)
         } else {
             match self.program.resolve_function(self.namespace, v) {
                 Some((namespace, original_name)) => Self::scoped_name(namespace, original_name),

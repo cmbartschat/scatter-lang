@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Not, sync::OnceLock};
+use std::{ops::Not, sync::OnceLock};
 
 use crate::{
     interpreter::{Interpreter, InterpreterResult},
@@ -183,18 +183,18 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
     }
 }
 
-pub fn get_intrinsic(name: &str) -> Option<&'static IntrinsicData> {
-    get_intrinsics().get(name)
-}
+type RawIntrinsic = (&'static str, Arity, Intrinsic);
 
 pub struct IntrinsicData {
+    pub name: &'static str,
     pub arity: Arity,
     pub func: Intrinsic,
 }
 
-impl From<(&'static str, Arity, Intrinsic)> for IntrinsicData {
-    fn from(value: (&'static str, Arity, Intrinsic)) -> Self {
+impl From<RawIntrinsic> for IntrinsicData {
+    fn from(value: RawIntrinsic) -> Self {
         IntrinsicData {
+            name: value.0,
             arity: value.1,
             func: value.2,
         }
@@ -206,8 +206,8 @@ static S: Type = Type::String;
 static B: Type = Type::Bool;
 static U: Type = Type::Unknown;
 
-pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
-    vec![
+fn get_intrinsic_data() -> IntrinsicsData {
+    let i: [RawIntrinsic; _] = [
         ("+", Arity::number_binary(), plus),
         ("-", Arity::number_binary(), minus),
         ("*", Arity::number_binary(), times),
@@ -236,26 +236,69 @@ pub fn get_intrinsic_data() -> Vec<(&'static str, Arity, Intrinsic)> {
         ("--", Arity::number_unary(), decrement),
         ("++", Arity::number_unary(), increment),
         ("==", Arity::binary(U, U, B), equals),
-    ]
+    ];
+
+    i.into_iter()
+        .map(|e| From::<RawIntrinsic>::from(e))
+        .collect()
 }
 
-type IntrinsicsData = HashMap<String, IntrinsicData>;
+type IntrinsicsData = Vec<IntrinsicData>;
+
 static INTRINSICS_DATA: OnceLock<IntrinsicsData> = OnceLock::new();
 
-fn init_intrinsics_data() -> HashMap<String, IntrinsicData> {
-    let mut i = HashMap::<String, IntrinsicData>::new();
-    for d in get_intrinsic_data() {
-        i.insert(d.0.into(), d.into());
+pub fn get_intrinsics() -> &'static IntrinsicsData {
+    INTRINSICS_DATA.get_or_init(get_intrinsic_data)
+}
+
+static LOOKUP_TABLE_SIZE: usize = 256;
+
+fn hash_name(name: &str) -> usize {
+    let mut b = name.bytes();
+    let f1 = b.next().unwrap_or_default();
+    let f2 = b.next().unwrap_or_default();
+
+    (f1 as usize * 3333 + f2 as usize * 70) % LOOKUP_TABLE_SIZE
+}
+
+fn create_lookup_table() -> Vec<Option<&'static IntrinsicData>> {
+    let v = get_intrinsics();
+    let mut res = Vec::<Option<&'static IntrinsicData>>::with_capacity(LOOKUP_TABLE_SIZE);
+
+    while res.len() < LOOKUP_TABLE_SIZE {
+        res.push(None);
     }
-    i
+
+    v.iter().for_each(|f| {
+        let index = hash_name(f.name);
+        if res[index].is_some() {
+            panic!("Hash collision for {:?} ({})", f.name, index);
+        }
+        res[index] = Some(f);
+    });
+
+    res
 }
 
-pub fn get_intrinsics() -> &'static HashMap<String, IntrinsicData> {
-    INTRINSICS_DATA.get_or_init(init_intrinsics_data)
+static LOOKUP_TABLE: OnceLock<Vec<Option<&'static IntrinsicData>>> = OnceLock::new();
+
+pub fn get_intrinsic(name: &str) -> Option<&'static IntrinsicData> {
+    let table = LOOKUP_TABLE.get_or_init(create_lookup_table);
+    let hash = hash_name(name);
+    match table[hash] {
+        Some(e) => {
+            if e.name == name {
+                Some(e)
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
 }
 
-pub fn get_c_name(name: &str) -> &str {
-    match name {
+pub fn get_intrinsic_codegen_name(name: &str) -> Option<&'static str> {
+    Some(match get_intrinsic(name).map(|e| e.name)? {
         "+" => "plus",
         "index" => "string_index",
         "-" => "minus",
@@ -271,6 +314,6 @@ pub fn get_c_name(name: &str) -> &str {
         "--" => "decrement",
         "++" => "increment",
         "==" => "equals",
-        _ => name,
-    }
+        t => t,
+    })
 }

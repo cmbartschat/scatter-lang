@@ -10,7 +10,7 @@ use crate::{
     analyze::{AnalysisError, BlockAnalysisResult, analyze_block_in_namespace, analyze_program},
     codegen::{c::c_codegen_module, js::js_codegen_module},
     interpreter::{Interpreter, InterpreterSnapshot},
-    intrinsics::get_intrinsics,
+    intrinsics::{IntrinsicData, get_intrinsics},
     lang::{ImportLocation, ImportNaming, Module},
     parser::parse,
     program::{NamespaceId, NamespaceImport, Program},
@@ -182,7 +182,7 @@ impl Repl {
             }
         }
         println!("Intrinsics:");
-        for (name, _) in get_intrinsics().iter() {
+        for IntrinsicData { name, .. } in get_intrinsics().iter() {
             println!("  {name}");
         }
 

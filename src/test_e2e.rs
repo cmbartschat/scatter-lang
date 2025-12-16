@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::intrinsics::{get_c_name, get_intrinsics};
+    use crate::intrinsics::{IntrinsicData, get_intrinsic_codegen_name, get_intrinsics};
     use crate::lang::ImportNaming;
     use crate::program::{NamespaceImport, Program};
     use crate::{interpreter::Interpreter, parser::parse};
@@ -31,8 +31,8 @@ mod tests {
 
     #[test]
     fn exhaustive() {
-        for (name, _) in get_intrinsics().iter() {
-            if SKIPPED_INTRINSICS.contains(&name.as_str()) {
+        for IntrinsicData { name, .. } in get_intrinsics().iter() {
+            if SKIPPED_INTRINSICS.contains(name) {
                 continue;
             }
             let pattern = format!("\"{}\" start_suite", name);
@@ -46,8 +46,8 @@ mod tests {
 
     #[test]
     fn intrinsics_symbols() {
-        for (name, _) in get_intrinsics().iter() {
-            let c_name = get_c_name(name);
+        for IntrinsicData { name, .. } in get_intrinsics().iter() {
+            let c_name = get_intrinsic_codegen_name(name).unwrap();
             for c in c_name.chars() {
                 assert!(
                     matches!(c, '0'..='9' | 'a'..='z' | '_'),
@@ -65,7 +65,10 @@ mod tests {
 
         let js_exceptions = ["readline"];
 
-        for name in get_intrinsics().iter().map(|f| get_c_name(f.0)) {
+        for name in get_intrinsics()
+            .iter()
+            .map(|f| get_intrinsic_codegen_name(f.name).unwrap())
+        {
             assert!(
                 C_DEFINITIONS.contains(&format!("status_t {name}(void) {{")),
                 "defined by c: {name}",
