@@ -102,12 +102,12 @@ fn substring(i: &mut Interpreter) -> InterpreterResult {
     let original = i.take_string()?;
     let start = (start as usize).min(original.len()).max(0);
     let end = (end as usize).min(original.len()).max(start);
-    i.push(&original[start..end])
+    i.push(original[start..end].to_string())
 }
 
 fn join(i: &mut Interpreter) -> InterpreterResult {
     let (first, second) = i.take2()?;
-    i.push(format!("{first}{second}").as_str())
+    i.push(format!("{first}{second}"))
 }
 
 fn length(i: &mut Interpreter) -> InterpreterResult {
@@ -145,7 +145,7 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
 fn index(i: &mut Interpreter) -> InterpreterResult {
     let needle = i.take_string()?;
     let haystack = i.take_string()?;
-    let location = haystack.find(&needle).map(|e| e as f64).unwrap_or(-1f64);
+    let location = haystack.find(&*needle).map(|e| e as f64).unwrap_or(-1f64);
     i.push(location)
 }
 

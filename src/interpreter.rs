@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     io::{BufRead, StdinLock},
     ops::Not,
 };
@@ -11,10 +12,8 @@ use crate::{
 
 pub type InterpreterResult = Result<(), &'static str>;
 
-pub type Stack = Vec<Value>;
-
 pub struct Interpreter<'a> {
-    pub stack: Stack,
+    pub stack: Vec<Value<'a>>,
     pub namespace_stack: Vec<NamespaceId>,
     pub program: &'a Program,
     input: Option<StdinLock<'static>>,
@@ -22,7 +21,7 @@ pub struct Interpreter<'a> {
 
 #[derive(Default)]
 pub struct InterpreterSnapshot {
-    pub stack: Stack,
+    pub stack: Vec<Term>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -33,16 +32,22 @@ impl<'a> Interpreter<'a> {
 
     pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {
         Self {
-            stack: snapshot.stack,
+            stack: snapshot
+                .stack
+                .into_iter()
+                .map(|f| TryInto::<Value>::try_into(&f).expect("Invalid term in snapshot"))
+                .collect(),
             namespace_stack: vec![],
             program,
             input: Some(std::io::stdin().lock()),
         }
     }
 
-    pub fn execute(mut self, block: &Block) -> Result<InterpreterSnapshot, &'static str> {
+    pub fn execute(mut self, block: &'a Block) -> Result<InterpreterSnapshot, &'static str> {
         self.evaluate_block(block)?;
-        Ok(InterpreterSnapshot { stack: self.stack })
+        Ok(InterpreterSnapshot {
+            stack: self.stack.into_iter().map(|f| f.into()).collect(),
+        })
     }
 
     pub fn enable_stdin(&mut self) {
@@ -68,7 +73,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn take(&mut self) -> Result<Value, &'static str> {
+    pub fn take(&mut self) -> Result<Value<'a>, &'static str> {
         match self.stack.pop() {
             Some(a) => Ok(a),
             None => Err("Stack empty"),
@@ -82,7 +87,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn take_string(&mut self) -> Result<String, &'static str> {
+    pub fn take_string(&mut self) -> Result<Cow<'a, str>, &'static str> {
         match self.take()? {
             Value::String(v) => Ok(v),
             _ => Err("Expected string on top of stack"),
@@ -91,7 +96,7 @@ impl<'a> Interpreter<'a> {
 
     pub fn push<T>(&mut self, v: T) -> InterpreterResult
     where
-        Value: From<T>,
+        Value<'a>: From<T>,
     {
         self.stack.push(v.into());
         Ok(())
@@ -99,8 +104,8 @@ impl<'a> Interpreter<'a> {
 
     pub fn push2<T1, T2>(&mut self, a: T1, b: T2) -> InterpreterResult
     where
-        Value: From<T1>,
-        Value: From<T2>,
+        Value<'a>: From<T1>,
+        Value<'a>: From<T2>,
     {
         self.stack.push(a.into());
         self.stack.push(b.into());
@@ -109,9 +114,9 @@ impl<'a> Interpreter<'a> {
 
     pub fn push3<T1, T2, T3>(&mut self, a: T1, b: T2, c: T3) -> InterpreterResult
     where
-        Value: From<T1>,
-        Value: From<T2>,
-        Value: From<T3>,
+        Value<'a>: From<T1>,
+        Value<'a>: From<T2>,
+        Value<'a>: From<T3>,
     {
         self.stack.push(a.into());
         self.stack.push(b.into());
@@ -119,13 +124,13 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    pub fn take2(&mut self) -> Result<(Value, Value), &'static str> {
+    pub fn take2(&mut self) -> Result<(Value<'a>, Value<'a>), &'static str> {
         let top = self.take()?;
         let second = self.take()?;
         Ok((second, top))
     }
 
-    pub fn take3(&mut self) -> Result<(Value, Value, Value), &'static str> {
+    pub fn take3(&mut self) -> Result<(Value<'a>, Value<'a>, Value<'a>), &'static str> {
         let c = self.take()?;
         let b = self.take()?;
         let a = self.take()?;
@@ -139,14 +144,14 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn evaluate_block(&mut self, block: &Block) -> Result<(), &'static str> {
+    fn evaluate_block(&mut self, block: &'a Block) -> Result<(), &'static str> {
         for term in block.terms.iter() {
             self.evaluate_term(term)?;
         }
         Ok(())
     }
 
-    fn evaluate_branch(&mut self, b: &Branch) -> InterpreterResult {
+    fn evaluate_branch(&mut self, b: &'a Branch) -> InterpreterResult {
         for arm in b.arms.iter() {
             self.evaluate_block(&arm.0)?;
             if self.take()?.is_truthy() {
@@ -188,7 +193,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn evaluate_loop(&mut self, l: &Loop) -> InterpreterResult {
+    fn evaluate_loop(&mut self, l: &'a Loop) -> InterpreterResult {
         loop {
             match &l.pre_condition {
                 None => {}
@@ -212,7 +217,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn evaluate_term(&mut self, term: &Term) -> InterpreterResult {
+    fn evaluate_term(&mut self, term: &'a Term) -> InterpreterResult {
         match term {
             Term::String(l) => self.push(Value::String(l.into())),
             Term::Number(l) => self.push(Value::Number(*l)),

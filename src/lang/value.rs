@@ -1,13 +1,18 @@
-use std::{fmt::Debug, fmt::Display};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
+
+use crate::lang::Term;
 
 #[derive(Clone, PartialEq)]
-pub enum Value {
-    String(String),
+pub enum Value<'a> {
+    String(Cow<'a, str>),
     Number(f64),
     Bool(bool),
 }
 
-impl Value {
+impl<'a> Value<'a> {
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::String(s) => !s.is_empty(),
@@ -17,47 +22,43 @@ impl Value {
     }
 }
 
-impl From<i32> for Value {
+impl<'a> From<i32> for Value<'a> {
     fn from(value: i32) -> Self {
         Value::Number(value as f64)
     }
 }
 
-impl From<&Value> for Value {
-    fn from(value: &Value) -> Self {
-        value.clone()
+impl<'a> From<&Value<'a>> for Value<'a> {
+    fn from(value: &Value<'a>) -> Self {
+        value.to_owned()
     }
 }
 
-impl From<bool> for Value {
+impl<'a> From<bool> for Value<'a> {
     fn from(value: bool) -> Self {
         Value::Bool(value)
     }
 }
 
-impl From<f64> for Value {
+impl<'a> From<f64> for Value<'a> {
     fn from(value: f64) -> Self {
         Value::Number(value)
     }
 }
 
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        match value {
-            "true" => true.into(),
-            "false" => false.into(),
-            _ => Value::String(value.into()),
-        }
+impl<'a> From<&'a str> for Value<'a> {
+    fn from(value: &'a str) -> Self {
+        Value::String(value.into())
     }
 }
 
-impl From<String> for Value {
+impl<'a> From<String> for Value<'a> {
     fn from(value: String) -> Self {
-        value.as_str().into()
+        Value::String(value.into())
     }
 }
 
-impl Debug for Value {
+impl<'a> Debug for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => Debug::fmt(s, f),
@@ -68,11 +69,36 @@ impl Debug for Value {
     }
 }
 
-impl Display for Value {
+impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => Display::fmt(s, f),
             _ => Debug::fmt(&self, f),
+        }
+    }
+}
+
+impl TryFrom<&Term> for Value<'static> {
+    type Error = ();
+
+    fn try_from(value: &Term) -> Result<Self, Self::Error> {
+        match value {
+            Term::String(l) => Ok(l.to_owned().into()),
+            Term::Number(l) => Ok((*l).into()),
+            Term::Bool(l) => Ok((*l).into()),
+            Term::Name(_) => Err(()),
+            Term::Branch(_) => Err(()),
+            Term::Loop(_) => Err(()),
+        }
+    }
+}
+
+impl<'a> From<Value<'a>> for Term {
+    fn from(val: Value<'a>) -> Self {
+        match val {
+            Value::String(cow) => Term::String(cow.into_owned()),
+            Value::Number(l) => l.into(),
+            Value::Bool(l) => l.into(),
         }
     }
 }
