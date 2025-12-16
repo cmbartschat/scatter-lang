@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic,
-    lang::{Arity, ArityCombineError, Block, Term, Type, Value},
+    lang::{Arity, ArityCombineError, Block, Term, Type},
     program::{NamespaceId, Program},
 };
 
@@ -27,7 +27,10 @@ pub struct Analysis<'a> {
 
 fn block_is_always_truthy(b: &Block) -> Option<bool> {
     match (b.terms.len(), b.terms.first()) {
-        (1, Some(Term::Literal(t))) => Some(t.is_truthy()),
+        (1, Some(Term::String(t))) => Some(t.len() > 1),
+        (1, Some(Term::Number(t))) => Some(!t.is_nan() && *t != 0f64),
+        (1, Some(Term::Bool(true))) => Some(true),
+        (1, Some(Term::Bool(false))) => Some(false),
         _ => None,
     }
 }
@@ -46,11 +49,9 @@ pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
 
 pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
     match term {
-        Term::Literal(t) => Ok(match t {
-            Value::String(_) => Arity::literal(Type::String),
-            Value::Number(_) => Arity::literal(Type::Number),
-            Value::Bool(_) => Arity::literal(Type::Bool),
-        }),
+        Term::String(_) => Ok(Arity::literal(Type::String)),
+        Term::Number(_) => Ok(Arity::literal(Type::Number)),
+        Term::Bool(_) => Ok(Arity::literal(Type::Bool)),
         Term::Name(n) => {
             if let Some(a) = get_intrinsic(n) {
                 return Ok(a.arity.clone());

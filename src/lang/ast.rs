@@ -1,8 +1,8 @@
-use crate::lang::value::Value;
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
-    Literal(Value),
+    String(String),
+    Number(f64),
+    Bool(bool),
     Name(String),
     Branch(Branch),
     Loop(Loop),
@@ -10,19 +10,19 @@ pub enum Term {
 
 impl From<i32> for Term {
     fn from(value: i32) -> Self {
-        Term::Literal(value.into())
+        Term::Number(value.into())
     }
 }
 
 impl From<f64> for Term {
     fn from(value: f64) -> Self {
-        Term::Literal(value.into())
+        Term::Number(value)
     }
 }
 
 impl From<bool> for Term {
     fn from(value: bool) -> Self {
-        Term::Literal(value.into())
+        Term::Bool(value)
     }
 }
 

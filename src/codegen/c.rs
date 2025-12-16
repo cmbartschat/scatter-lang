@@ -1,6 +1,6 @@
 use crate::{
     codegen::context::CodegenContext,
-    lang::{Block, Function, Loop, Term, Value},
+    lang::{Block, Function, Loop, Term},
     program::{NamespaceId, Program},
 };
 
@@ -33,18 +33,16 @@ fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
 
 fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
     match term {
-        Term::Literal(value) => match value {
-            Value::String(e) => ctx.target.write_line(&format!(
-                "checked(push_string_literal({:?}, {}));",
-                e,
-                e.len()
-            )),
-            Value::Number(e) => ctx
-                .target
-                .write_line(&format!("checked(push_number_literal({}L));", e)),
-            Value::Bool(true) => ctx.target.write_line("checked(push_true_literal());"),
-            Value::Bool(false) => ctx.target.write_line("checked(push_false_literal());"),
-        },
+        Term::String(e) => ctx.target.write_line(&format!(
+            "checked(push_string_literal({:?}, {}));",
+            e,
+            e.len()
+        )),
+        Term::Number(e) => ctx
+            .target
+            .write_line(&format!("checked(push_number_literal({}L));", e)),
+        Term::Bool(true) => ctx.target.write_line("checked(push_true_literal());"),
+        Term::Bool(false) => ctx.target.write_line("checked(push_false_literal());"),
         Term::Name(n) => ctx
             .target
             .write_line(&format!("checked({}());", ctx.resolve_name_reference(n))),

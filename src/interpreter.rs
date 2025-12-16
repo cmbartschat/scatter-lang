@@ -214,7 +214,9 @@ impl<'a> Interpreter<'a> {
 
     fn evaluate_term(&mut self, term: &Term) -> InterpreterResult {
         match term {
-            Term::Literal(l) => self.push(l),
+            Term::String(l) => self.push(Value::String(l.into())),
+            Term::Number(l) => self.push(Value::Number(*l)),
+            Term::Bool(l) => self.push(Value::Bool(*l)),
             Term::Name(name) => self.evaluate_name(name),
             Term::Branch(b) => self.evaluate_branch(b),
             Term::Loop(l) => self.evaluate_loop(l),

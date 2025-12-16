@@ -1,6 +1,6 @@
 use crate::{
     codegen::context::CodegenContext,
-    lang::{Block, Loop, Term, Value},
+    lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
 
@@ -27,12 +27,10 @@ fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
 
 fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
     match term {
-        Term::Literal(value) => match value {
-            Value::String(e) => ctx.target.write_line(&format!("push({:?})", e)),
-            Value::Number(e) => ctx.target.write_line(&format!("push({})", e)),
-            Value::Bool(true) => ctx.target.write_line("push(true)"),
-            Value::Bool(false) => ctx.target.write_line("push(false)"),
-        },
+        Term::String(e) => ctx.target.write_line(&format!("push({:?})", e)),
+        Term::Number(e) => ctx.target.write_line(&format!("push({})", e)),
+        Term::Bool(true) => ctx.target.write_line("push(true)"),
+        Term::Bool(false) => ctx.target.write_line("push(false)"),
         Term::Name(n) => ctx
             .target
             .write_line(&format!("{}()", ctx.resolve_name_reference(n))),

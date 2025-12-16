@@ -1,14 +1,14 @@
 use crate::{
-    lang::{Symbol, Token, Value},
+    lang::{Symbol, Token},
     parser::ParseResult,
 };
 
 fn clear_and_push_word(tokens: &mut Vec<Token>, word: &mut String) {
     match word.parse::<f64>() {
-        Ok(v) => tokens.push(Token::Literal(v.into())),
+        Ok(v) => tokens.push(Token::Number(v)),
         Err(_) => match word.as_str() {
-            "true" => tokens.push(Token::Literal(true.into())),
-            "false" => tokens.push(Token::Literal(false.into())),
+            "true" => tokens.push(Token::Bool(true)),
+            "false" => tokens.push(Token::Bool(false)),
             _ => {
                 if !word.is_empty() {
                     tokens.push(Token::Name(word.clone()));
@@ -83,7 +83,7 @@ pub fn tokenize(source: &str) -> ParseResult<Vec<Token>> {
                 } else {
                     match char {
                         '"' => {
-                            tokens.push(Token::Literal(Value::String(word.clone())));
+                            tokens.push(Token::String(word.clone()));
                             state = ParseState::normal();
                         }
                         '\\' => {

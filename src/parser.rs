@@ -3,7 +3,7 @@ use std::{iter::Peekable, vec::IntoIter};
 use crate::{
     lang::{
         Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, Symbol, Term,
-        Token, Value,
+        Token,
     },
     tokenizer::tokenize,
 };
@@ -57,7 +57,9 @@ fn consume_block_terms(
 ) -> Result<Option<BlockEndSymbol>, &'static str> {
     loop {
         match tokens.next() {
-            Some(Token::Literal(l)) => target.push(Term::Literal(l)),
+            Some(Token::String(l)) => target.push(Term::String(l)),
+            Some(Token::Number(l)) => target.push(Term::Number(l)),
+            Some(Token::Bool(l)) => target.push(Term::Bool(l)),
             Some(Token::Name(l)) => target.push(Term::Name(l)),
             Some(Token::Symbol(s)) => match s {
                 Symbol::LineEnd => {}
@@ -168,18 +170,18 @@ fn parse_function_body(tokens: &mut Tokens) -> ParseResult<Block> {
 fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
     let mut target = vec![];
 
-    loop {
-        match tokens.next() {
-            Some(Token::Literal(l)) => target.push(Term::Literal(l)),
-            Some(Token::Name(l)) => target.push(Term::Name(l)),
-            Some(Token::Symbol(s)) => match s {
+    while let Some(t) = tokens.next() {
+        match t {
+            Token::String(l) => target.push(Term::String(l)),
+            Token::Number(l) => target.push(Term::Number(l)),
+            Token::Bool(l) => target.push(Term::Bool(l)),
+            Token::Name(l) => target.push(Term::Name(l)),
+            Token::Symbol(s) => match s {
                 Symbol::LineEnd => break,
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens)?)),
                 Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens)?)),
                 _ => todo!(),
             },
-
-            None => break,
         };
     }
     Ok(Block { terms: target })
@@ -239,7 +241,7 @@ fn parse_import(tokens: &mut Tokens) -> ParseResult<Import> {
     };
 
     let path = match tokens.next() {
-        Some(Token::Literal(Value::String(s))) => s,
+        Some(Token::String(s)) => s,
         _ => return Err("Expected path after import"),
     };
 
@@ -258,7 +260,9 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
 
     while let Some(token) = tokens.next() {
         match token {
-            Token::Literal(l) => module.body.terms.push(Term::Literal(l)),
+            Token::String(l) => module.body.terms.push(Term::String(l)),
+            Token::Number(l) => module.body.terms.push(Term::Number(l)),
+            Token::Bool(l) => module.body.terms.push(Term::Bool(l)),
             Token::Name(s) => {
                 if maybe_consume_next_symbol(Symbol::Colon, tokens) {
                     module.functions.push(parse_function(s, tokens)?);
