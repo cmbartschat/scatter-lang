@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     io::{StdoutLock, Write},
     ops::Not,
@@ -12,7 +13,7 @@ use crate::{
     interpreter::{Interpreter, InterpreterSnapshot},
     intrinsics::{IntrinsicData, get_intrinsics},
     lang::{ImportLocation, ImportNaming, Module},
-    parser::parse,
+    parser::{ParseError, parse},
     program::{NamespaceId, NamespaceImport, Program},
 };
 
@@ -38,9 +39,43 @@ pub struct Repl {
     snapshot: InterpreterSnapshot,
     base_path: PathBuf,
     loaded_paths: HashMap<PathBuf, NamespaceId>,
+    pending_code: String,
 }
 
-type ReplResult = Result<(), &'static str>;
+pub type ReplError = Cow<'static, str>;
+
+type ReplResult<T> = Result<T, ReplError>;
+
+fn stringify_absolute_path(path: Option<&Path>) -> String {
+    let Some(path) = path else {
+        return "input".into();
+    };
+
+    let Ok(cwd) = std::env::current_dir() else {
+        return path.display().to_string();
+    };
+
+    let Ok(stripped) = Path::strip_prefix(path, cwd) else {
+        return path.display().to_string();
+    };
+
+    stripped.display().to_string()
+}
+
+fn parse_error_to_cow(path: Option<&Path>, value: ParseError) -> Cow<'static, str> {
+    let file = stringify_absolute_path(path);
+    match value {
+        ParseError::UnboundedString(loc) => {
+            Cow::<str>::from(format!("{file}:{:?}: Unclosed string literal", loc))
+        }
+        ParseError::Location(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
+        ParseError::Range(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
+        ParseError::UnclosedExpression(e, loc) => {
+            Cow::<str>::from(format!("{file}:{:?}: {}", loc, e))
+        }
+        ParseError::UnexpectedEnd(e) => Cow::<str>::from(format!("{file}: {}", e)),
+    }
+}
 
 impl Repl {
     pub fn new(args: ReplArgs, base_path: PathBuf) -> Self {
@@ -50,24 +85,22 @@ impl Repl {
             program: Program::new(),
             base_path,
             loaded_paths: HashMap::default(),
+            pending_code: "".into(),
         }
     }
 
     pub fn prepare_code(
         &mut self,
-        source: &str,
+        ast: &Module,
         id: NamespaceId,
         context: &Path,
-    ) -> Result<Module, &'static str> {
-        let ast = parse(source)?;
-
+    ) -> ReplResult<()> {
         let mut imports = vec![];
         for import in ast.imports.iter() {
             match &import.location {
                 ImportLocation::Relative(path) => {
-                    if !path.starts_with("./") {
-                        eprintln!("Invalid import: {}", path);
-                        return Err("Import is not a relative path");
+                    if !path.starts_with("./") && !path.starts_with("../") {
+                        return Err(format!("Invalid import: {}", path).into());
                     }
                     let resolved = context.join(path);
                     let dependency_id = self.prepare_dependency(resolved)?;
@@ -81,39 +114,61 @@ impl Repl {
         self.program.add_functions(id, &ast.functions);
         self.program.add_imports(id, imports);
 
-        Ok(ast)
+        Ok(())
     }
 
-    pub fn prepare_dependency(&mut self, path: PathBuf) -> Result<NamespaceId, &'static str> {
+    pub fn prepare_dependency(&mut self, path: PathBuf) -> ReplResult<NamespaceId> {
         match self.loaded_paths.get(&path) {
             Some(e) => Ok(*e),
             None => self.prepare_file(path).map(|e| e.0),
         }
     }
 
-    pub fn prepare_file(&mut self, path: PathBuf) -> Result<(NamespaceId, Module), &'static str> {
+    pub fn prepare_file(&mut self, path: PathBuf) -> ReplResult<(NamespaceId, Module)> {
         if !path.is_absolute() {
-            return Err("File paths should be absolute");
+            return Err("File paths should be absolute".into());
         }
 
         let id = self.program.allocate_namespace();
         self.loaded_paths.insert(path.clone(), id);
 
         let source = std::fs::read_to_string(&path).map_err(|_| "Failed to read file")?;
+        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(&path), e))?;
         let context = match path.parent() {
             Some(p) => p,
-            None => return Err("Unable to resolve file path context"),
+            None => return Err("Unable to resolve file path context".into()),
         };
-        Ok((id, self.prepare_code(&source, id, context)?))
+
+        self.prepare_code(&ast, id, context)?;
+        Ok((id, ast))
     }
 
-    pub fn load_code(&mut self, id: NamespaceId, source: &str) -> ReplResult {
+    pub fn load_code(&mut self, id: NamespaceId, source: &str) -> ReplResult<()> {
+        if !self.pending_code.is_empty() {
+            self.pending_code.push('\n');
+        }
+        self.pending_code.push_str(source);
         let base = self.base_path.clone();
-        let ast = self.prepare_code(source, id, base.as_path())?;
+        let mut full_source = String::new();
+        std::mem::swap(&mut full_source, &mut self.pending_code);
+        let ast = match parse(&full_source) {
+            Ok(e) => e,
+            Err(e) => match e {
+                ParseError::UnexpectedEnd(_)
+                | ParseError::UnclosedExpression(..)
+                | ParseError::UnboundedString(_) => {
+                    std::mem::swap(&mut full_source, &mut self.pending_code);
+                    return Ok(());
+                }
+                e @ ParseError::Location(..) => return Err(parse_error_to_cow(None, e)),
+                e @ ParseError::Range(..) => return Err(parse_error_to_cow(None, e)),
+            },
+        };
+        self.prepare_code(&ast, id, base.as_path())?;
         self.consume_ast(id, ast)
     }
 
-    fn consume_ast(&mut self, namespace: NamespaceId, ast: Module) -> ReplResult {
+    fn consume_ast(&mut self, namespace: NamespaceId, ast: Module) -> ReplResult<()> {
         if let Some(lang) = &self.args.generate {
             match lang.as_str() {
                 "c" => c_codegen_module(&self.program, namespace, &ast.body),
@@ -153,12 +208,12 @@ impl Repl {
         }
     }
 
-    pub fn load_file(&mut self, path: &str) -> ReplResult {
+    pub fn load_file(&mut self, path: &str) -> ReplResult<()> {
         let (namespace_id, ast) = self.prepare_file(self.base_path.join(PathBuf::from(path)))?;
         self.consume_ast(namespace_id, ast)
     }
 
-    pub fn list(&mut self, user_namespace: usize) -> ReplResult {
+    pub fn list(&mut self, user_namespace: usize) -> ReplResult<()> {
         println!("Available functions:");
         for (name, _) in self.program.namespaces[user_namespace].functions.iter() {
             println!("  {name}");
@@ -219,7 +274,7 @@ impl Repl {
         Ok(line)
     }
 
-    pub fn run(mut self) -> ReplResult {
+    pub fn run(mut self) -> ReplResult<()> {
         if !self.args.files.is_empty() {
             for path in &self.args.files.clone() {
                 self.load_file(path)?;
@@ -233,13 +288,11 @@ impl Repl {
 
         let user_namespace = self.program.allocate_namespace();
         loop {
-            let command = self.prompt()?;
-
-            match command.trim() {
+            match self.prompt()?.trim() {
                 "exit" => return Ok(()),
                 "list" => self.list(user_namespace)?,
                 "clear" => self.snapshot.stack.clear(),
-                _ => self.load_code(user_namespace, &command)?,
+                c => self.load_code(user_namespace, c)?,
             };
         }
     }

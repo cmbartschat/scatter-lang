@@ -35,7 +35,7 @@ impl SourceLocation {
 
 impl Debug for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "L{}C{}", self.line + 1, self.column + 1)
+        write!(f, "{}:{}", self.line + 1, self.column + 1)
     }
 }
 
@@ -63,7 +63,13 @@ impl Debug for SourceRange {
         if self.start.character == self.end.character {
             write!(f, "{:?}", self.start)
         } else {
-            write!(f, "{:?}-{:?}", self.start, self.end)
+            write!(
+                f,
+                "{:?}-{}.{}",
+                self.start,
+                self.end.line + 1,
+                self.end.column + 1
+            )
         }
     }
 }

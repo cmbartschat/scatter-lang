@@ -49,6 +49,5 @@ impl Token {
 #[derive(Debug)]
 pub struct ParsedToken {
     pub value: Token,
-    #[allow(unused)]
     pub loc: SourceRange,
 }
