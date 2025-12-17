@@ -63,7 +63,7 @@ mod tests {
         static C_DEFINITIONS: &'static str = include_str!("./codegen/c.h");
         static JS_DEFINITIONS: &'static str = include_str!("./codegen/js.js");
 
-        let js_exceptions = ["readline"];
+        let js_exceptions = [];
         let c_exceptions = [];
 
         for name in get_intrinsics()

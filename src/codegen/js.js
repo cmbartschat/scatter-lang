@@ -233,3 +233,49 @@ function eval_i() {
   drop()
   fn()
 }
+
+let BUFFERED_INPUT = null
+const BUFFER = new Uint8Array(1000)
+
+function readline_node() {
+  // eslint-disable-next-line global-require
+  const fs = require('node:fs')
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (BUFFERED_INPUT) {
+      const new_line_index = BUFFERED_INPUT.indexOf('\n')
+      if (new_line_index >= 0) {
+        const res = BUFFERED_INPUT.substring(0, new_line_index - 1)
+        BUFFERED_INPUT = BUFFERED_INPUT.substring(new_line_index + 1) || null
+        return res
+      }
+    }
+
+    const written_bytes = fs.readSync(0, BUFFER)
+    if (written_bytes === 0) {
+      const res = BUFFERED_INPUT
+      BUFFERED_INPUT = null
+      return res || null
+    }
+
+    const decoded = new TextDecoder().decode(BUFFER)
+    BUFFERED_INPUT = (BUFFERED_INPUT || '') + decoded
+  }
+}
+
+function readline() {
+  let v = null
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-alert
+    v = window.prompt()
+  } else {
+    v = readline_node()
+  }
+  if (v === null) {
+    push('')
+    push(false)
+  } else {
+    push(v)
+    push(true)
+  }
+}
