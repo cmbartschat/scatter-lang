@@ -1,14 +1,17 @@
-use std::{iter::Peekable, vec::IntoIter};
+use std::{
+    iter::{Map, Peekable},
+    vec::IntoIter,
+};
 
 use crate::{
     lang::{
-        Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, Symbol, Term,
-        Token,
+        Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, ParsedToken,
+        Symbol, Term, Token,
     },
-    tokenizer::tokenize,
+    tokenizer::{TokenizeError, tokenize},
 };
 
-type Tokens = Peekable<IntoIter<Token>>;
+type Tokens = Peekable<Map<IntoIter<ParsedToken>, fn(ParsedToken) -> Token>>;
 
 pub type ParseResult<T> = Result<T, &'static str>;
 
@@ -301,7 +304,20 @@ fn parse_module(tokens: &mut Tokens) -> ParseResult<Module> {
     Ok(module)
 }
 
+fn get_token_value(t: ParsedToken) -> Token {
+    t.value
+}
+
 pub fn parse(source: &str) -> ParseResult<Module> {
-    let tokens = tokenize(source)?;
-    parse_module(&mut tokens.into_iter().peekable())
+    let mut tokens: Tokens = tokenize(source)
+        .map_err(|f| match f {
+            TokenizeError::UnboundedString(s) => {
+                eprintln!("Unbounded string at {s:?}");
+                "Unbounded string"
+            }
+        })?
+        .into_iter()
+        .map(get_token_value as fn(ParsedToken) -> Token)
+        .peekable();
+    parse_module(&mut tokens)
 }
