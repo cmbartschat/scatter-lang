@@ -62,8 +62,7 @@ fn maybe_consume_next_symbol(symbol: Symbol, tokens: &mut Tokens) -> Option<Pars
     ignore_whitespace(tokens);
     match tokens.peek() {
         Some(t) if t.value == Token::Symbol(symbol) => tokens.next(),
-        Some(_) => None,
-        None => None,
+        Some(_) | None => None,
     }
 }
 

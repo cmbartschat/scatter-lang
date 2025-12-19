@@ -141,9 +141,8 @@ impl Repl {
 
         let source = std::fs::read_to_string(&path).map_err(|_| "Failed to read file")?;
         let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(&path), e))?;
-        let context = match path.parent() {
-            Some(p) => p,
-            None => return Err("Unable to resolve file path context".into()),
+        let Some(context) = path.parent() else {
+            return Err("Unable to resolve file path context".into());
         };
 
         self.prepare_code(&ast, id, context)?;
