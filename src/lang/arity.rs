@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::lang::Type;
 
 type Index = usize;
@@ -107,7 +109,7 @@ impl ResultantType {
                     if !str.is_empty() {
                         str.push('|');
                     }
-                    str.push_str(&format!("{t}"));
+                    write!(&mut str, "{t}").expect("Write error in ResultantType::stringify");
                 }
                 str
             }
@@ -305,7 +307,7 @@ impl Arity {
         let mut res = String::new();
         for (i, pop) in self.pops.iter().enumerate().rev() {
             if pop == &Type::Unknown && self.pushes.iter().any(|f| f.references(i)) {
-                res.push_str(&format!("{i}"));
+                write!(&mut res, "{i}").expect("Write error in Arity::stringify");
             } else {
                 res.push_str(pop.stringify());
             }
