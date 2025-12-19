@@ -1,5 +1,5 @@
 use crate::{
-    codegen::context::CodegenContext,
+    codegen::{context::CodegenContext, target::CodegenTarget},
     lang::{Block, Function, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -102,7 +102,7 @@ pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &B
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
-        target: Default::default(),
+        target: CodegenTarget::default(),
     };
 
     for (id, ast) in program.namespaces.iter().enumerate() {

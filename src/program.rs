@@ -42,7 +42,7 @@ impl Program {
     }
 
     pub fn allocate_namespace(&mut self) -> NamespaceId {
-        self.namespaces.push(Default::default());
+        self.namespaces.push(Namespace::default());
         self.namespaces.len() - 1
     }
 

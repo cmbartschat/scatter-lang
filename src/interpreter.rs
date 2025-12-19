@@ -27,7 +27,7 @@ pub struct InterpreterSnapshot {
 impl<'a> Interpreter<'a> {
     #[allow(dead_code)]
     pub fn begin(program: &'a Program) -> Self {
-        Self::from_snapshot(Default::default(), program)
+        Self::from_snapshot(InterpreterSnapshot::default(), program)
     }
 
     pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {

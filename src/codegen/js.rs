@@ -1,5 +1,5 @@
 use crate::{
-    codegen::context::CodegenContext,
+    codegen::{context::CodegenContext, target::CodegenTarget},
     lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -73,7 +73,7 @@ pub fn js_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
-        target: Default::default(),
+        target: CodegenTarget::default(),
     };
 
     for (id, ast) in program.namespaces.iter().enumerate() {
