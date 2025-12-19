@@ -32,7 +32,7 @@ impl<'a> Interpreter<'a> {
 
     pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {
         Self {
-            stack: snapshot.stack.into_iter().map(|f| f.into()).collect(),
+            stack: snapshot.stack.into_iter().map(Into::into).collect(),
             namespace_stack: vec![],
             program,
             input: Some(std::io::stdin().lock()),
@@ -42,7 +42,7 @@ impl<'a> Interpreter<'a> {
     pub fn execute(mut self, block: &'a Block) -> Result<InterpreterSnapshot, &'static str> {
         self.evaluate_block(block)?;
         Ok(InterpreterSnapshot {
-            stack: self.stack.into_iter().map(|f| f.into()).collect(),
+            stack: self.stack.into_iter().map(Into::into).collect(),
         })
     }
 
@@ -146,7 +146,7 @@ impl<'a> Interpreter<'a> {
     fn get_current_namespace(&self) -> usize {
         self.namespace_stack
             .last()
-            .map(|f| f.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .unwrap_or_default()
     }
 
@@ -158,26 +158,26 @@ impl<'a> Interpreter<'a> {
         let function = &self.program.namespaces[namespace].functions[name];
         let current_namespace = self.get_current_namespace();
 
-        if namespace != current_namespace {
+        if namespace == current_namespace {
+            self.evaluate_block(&function.body)?;
+        } else {
             self.namespace_stack.push(namespace);
             self.evaluate_block(&function.body)?;
             self.namespace_stack.pop();
-        } else {
-            self.evaluate_block(&function.body)?;
         }
 
         Ok(())
     }
 
     fn evaluate_block(&mut self, block: &'a Block) -> Result<(), &'static str> {
-        for term in block.terms.iter() {
+        for term in &block.terms {
             self.evaluate_term(term)?;
         }
         Ok(())
     }
 
     fn evaluate_branch(&mut self, b: &'a Branch) -> InterpreterResult {
-        for arm in b.arms.iter() {
+        for arm in &b.arms {
             self.evaluate_block(&arm.0)?;
             if self.take()?.is_truthy() {
                 self.evaluate_block(&arm.1)?;
@@ -190,7 +190,7 @@ impl<'a> Interpreter<'a> {
     fn evaluate_name(&mut self, name: &str) -> InterpreterResult {
         if let Some(IntrinsicData { func, .. }) = get_intrinsic(name) {
             return func(self);
-        };
+        }
 
         let current_namespace = self.get_current_namespace();
 
@@ -203,12 +203,12 @@ impl<'a> Interpreter<'a> {
 
         let function = &self.program.namespaces[resolved_namespace].functions[resolved_name];
 
-        if resolved_namespace != current_namespace {
+        if resolved_namespace == current_namespace {
+            self.evaluate_block(&function.body)?;
+        } else {
             self.namespace_stack.push(resolved_namespace);
             self.evaluate_block(&function.body)?;
             self.namespace_stack.pop();
-        } else {
-            self.evaluate_block(&function.body)?;
         }
 
         Ok(())
@@ -224,7 +224,7 @@ impl<'a> Interpreter<'a> {
                         return Ok(());
                     }
                 }
-            };
+            }
             self.evaluate_block(&l.body)?;
             match &l.post_condition {
                 None => {}
@@ -234,7 +234,7 @@ impl<'a> Interpreter<'a> {
                         return Ok(());
                     }
                 }
-            };
+            }
         }
     }
 

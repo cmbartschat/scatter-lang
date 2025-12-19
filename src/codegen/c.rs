@@ -107,14 +107,14 @@ pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &B
 
     for (id, ast) in program.namespaces.iter().enumerate() {
         ctx.namespace = id;
-        for (_, func) in ast.functions.iter() {
+        for func in ast.functions.values() {
             forward_declare_func(&mut ctx, func);
         }
     }
 
     for (id, ast) in program.namespaces.iter().enumerate() {
         ctx.namespace = id;
-        for (_, func) in ast.functions.iter() {
+        for func in ast.functions.values() {
             let name = &ctx.get_scoped_name(&func.name);
             codegen_func(&mut ctx, name, &func.body);
         }

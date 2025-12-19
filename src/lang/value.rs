@@ -11,7 +11,7 @@ pub enum Value<'a> {
     Address(usize, String),
 }
 
-impl<'a> Value<'a> {
+impl Value<'_> {
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::String(s) => !s.is_empty(),
@@ -22,31 +22,31 @@ impl<'a> Value<'a> {
     }
 }
 
-impl<'a> From<i32> for Value<'a> {
+impl From<i32> for Value<'_> {
     fn from(value: i32) -> Self {
-        Value::Number(value as f64)
+        Value::Number(f64::from(value))
     }
 }
 
-impl<'a> From<bool> for Value<'a> {
+impl From<bool> for Value<'_> {
     fn from(value: bool) -> Self {
         Value::Bool(value)
     }
 }
 
-impl<'a> From<f64> for Value<'a> {
+impl From<f64> for Value<'_> {
     fn from(value: f64) -> Self {
         Value::Number(value)
     }
 }
 
-impl<'a> From<String> for Value<'a> {
+impl From<String> for Value<'_> {
     fn from(value: String) -> Self {
         Value::String(value.into())
     }
 }
 
-impl<'a> Debug for Value<'a> {
+impl Debug for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => Debug::fmt(s, f),
@@ -58,7 +58,7 @@ impl<'a> Debug for Value<'a> {
     }
 }
 
-impl<'a> Display for Value<'a> {
+impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => Display::fmt(s, f),

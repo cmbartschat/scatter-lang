@@ -21,14 +21,12 @@ impl MultiIndex {
                 self.insert(prev_el);
             }
             std::cmp::Ordering::Equal => {}
-            std::cmp::Ordering::Less => {
-                match &mut self.next {
-                    Some(n) => n.insert(i),
-                    None => {
-                        self.next = Some(Box::new(Self { el: i, next: None }));
-                    }
-                };
-            }
+            std::cmp::Ordering::Less => match &mut self.next {
+                Some(n) => n.insert(i),
+                None => {
+                    self.next = Some(Box::new(Self { el: i, next: None }));
+                }
+            },
         }
     }
 
@@ -251,7 +249,7 @@ impl Arity {
             (Some(ResultantType::Dependent(i)), _) => {
                 for x in i.iter() {
                     if term.assignable_to(&self.pops[x]) {
-                        for push in self.pushes.iter_mut() {
+                        for push in &mut self.pushes {
                             if push.references(x) {
                                 *push = ResultantType::Normal(term);
                             }
@@ -316,7 +314,7 @@ impl Arity {
 
         res.push('-');
 
-        for push in self.pushes.iter() {
+        for push in &self.pushes {
             res.push(' ');
             res.push_str(&push.stringify());
         }
@@ -327,7 +325,7 @@ impl Arity {
     pub fn extend_pops(&mut self) {
         self.pops.push(Type::Unknown);
         self.pushes
-            .insert(0, ResultantType::Dependent((self.pops.len() - 1).into()))
+            .insert(0, ResultantType::Dependent((self.pops.len() - 1).into()));
     }
 
     pub fn parallel(raw_left: &Arity, raw_right: &Arity) -> Result<Arity, ArityCombineError> {
@@ -358,10 +356,10 @@ impl Arity {
         for (i, t) in left.pushes.iter().enumerate() {
             match t.union(&right.pushes[i]) {
                 Ok(t) => res.push(t),
-                Err(_) => {
+                Err(()) => {
                     todo!("Handle union error");
                 }
-            };
+            }
         }
 
         Ok(res)

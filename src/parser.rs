@@ -105,7 +105,7 @@ fn consume_block_terms(
                 Symbol::SquareClose => return Ok(Some((BlockEndSymbol::SquareClose, loc))),
                 Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens, &loc.start)?)),
             },
-        };
+        }
     }
     Ok(None)
 }
@@ -236,7 +236,7 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
                 Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens, &loc.start)?)),
                 _ => todo!(),
             },
-        };
+        }
     }
     Ok(Block { terms: target })
 }
@@ -370,7 +370,7 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
                     .terms
                     .push(Term::Loop(parse_loop(tokens, &loc.start)?)),
             },
-        };
+        }
     }
 
     Ok(module)

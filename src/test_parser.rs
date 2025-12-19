@@ -252,12 +252,12 @@ mod tests {
 
     #[test]
     fn comments() {
-        let code = r#"
+        let code = r"
         1
         // comment
 2 // comment 2
 3
-        "#;
+        ";
 
         let ast = Module {
             body: Block {

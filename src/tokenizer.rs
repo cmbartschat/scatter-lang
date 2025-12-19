@@ -72,7 +72,7 @@ impl EscapeState {
     pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), ()> {
         let res = match self {
             EscapeState::EscapeNext => match char {
-                c @ '\\' | c @ '"' | c @ '\'' => c,
+                c @ ('\\' | '"' | '\'') => c,
                 'n' => '\n',
                 'r' => '\r',
                 't' => '\t',
@@ -268,7 +268,7 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                     };
                 }
             }
-        };
+        }
     }
 
     match &mut state {
@@ -277,7 +277,7 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
         ParseState::Normal(s) => {
             clear_and_push_word(&mut tokens, s, &saved_locations.map(|f| f.0), &None);
         }
-    };
+    }
 
     Ok(tokens)
 }

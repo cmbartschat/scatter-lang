@@ -23,7 +23,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![462f64.into()])
+        assert_eq!(result, vec![462f64.into()]);
     }
 
     #[test]
@@ -37,7 +37,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![378f64.into()])
+        assert_eq!(result, vec![378f64.into()]);
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![80f64.into()])
+        assert_eq!(result, vec![80f64.into()]);
     }
 
     #[test]
@@ -65,7 +65,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![5f64.into()])
+        assert_eq!(result, vec![5f64.into()]);
     }
 
     #[test]
@@ -79,7 +79,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![true.into()])
+        assert_eq!(result, vec![true.into()]);
     }
 
     #[test]
@@ -93,7 +93,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![false.into()])
+        assert_eq!(result, vec![false.into()]);
     }
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![true.into()])
+        assert_eq!(result, vec![true.into()]);
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![false.into()])
+        assert_eq!(result, vec![false.into()]);
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![false.into()])
+        assert_eq!(result, vec![false.into()]);
     }
 
     #[test]
@@ -149,7 +149,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![true.into()])
+        assert_eq!(result, vec![true.into()]);
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![42.into()])
+        assert_eq!(result, vec![42.into()]);
     }
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![5.into()])
+        assert_eq!(result, vec![5.into()]);
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
 
         let result = interpret(ast);
 
-        assert_eq!(result, vec![6765.into()])
+        assert_eq!(result, vec![6765.into()]);
     }
 
     #[test]
@@ -297,6 +297,6 @@ mod tests {
 
         let interpreter = Interpreter::begin(&program);
         let result = interpreter.execute(&main.body).unwrap().stack;
-        assert_eq!(result, vec![1.into(), 2.into(), 3.into()])
+        assert_eq!(result, vec![1.into(), 2.into(), 3.into()]);
     }
 }

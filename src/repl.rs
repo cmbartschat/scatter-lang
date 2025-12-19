@@ -22,13 +22,13 @@ fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
     match result {
         Some(Ok(arity)) => println!("{}: {}", label, arity.stringify()),
         Some(Err(AnalysisError::IndefiniteSize)) => {
-            println!("{}: unbounded", label)
+            println!("{}: unbounded", label);
         }
         Some(Err(AnalysisError::Pending)) => {
-            println!("{}: not resolved", label)
+            println!("{}: not resolved", label);
         }
         Some(Err(AnalysisError::IncompatibleTypes)) => {
-            println!("{}: incompatible types", label)
+            println!("{}: incompatible types", label);
         }
         None => println!("{}: not resolved", label),
     }
@@ -92,7 +92,7 @@ impl Repl {
             program: Program::new(),
             base_path,
             loaded_paths: HashMap::default(),
-            pending_code: "".into(),
+            pending_code: String::new(),
         }
     }
 
@@ -103,7 +103,7 @@ impl Repl {
         context: &Path,
     ) -> ReplResult<()> {
         let mut imports = vec![];
-        for import in ast.imports.iter() {
+        for import in &ast.imports {
             match &import.location {
                 ImportLocation::Relative(path) => {
                     if !path.starts_with("./") && !path.starts_with("../") {
@@ -167,9 +167,9 @@ impl Repl {
                     std::mem::swap(&mut full_source, &mut self.pending_code);
                     return Ok(());
                 }
-                e @ ParseError::Tokenization(TokenizeError::InvalidStringEscape(..))
-                | e @ ParseError::Location(..)
-                | e @ ParseError::Range(..) => return Err(parse_error_to_cow(None, e)),
+                e @ (ParseError::Tokenization(TokenizeError::InvalidStringEscape(..))
+                | ParseError::Location(..)
+                | ParseError::Range(..)) => return Err(parse_error_to_cow(None, e)),
             },
         };
         self.prepare_code(&ast, id, base.as_path())?;
@@ -191,7 +191,7 @@ impl Repl {
         }
         if self.args.analyze {
             let arities = analyze_program(&self.program);
-            for func in ast.functions.iter() {
+            for func in &ast.functions {
                 report_arity(&func.name, arities[namespace].get(&func.name));
             }
             if ast.body.terms.is_empty().not() {
@@ -203,7 +203,7 @@ impl Repl {
                         &ast.body,
                         &self.program,
                     )),
-                )
+                );
             }
             Ok(())
         } else {
@@ -223,30 +223,30 @@ impl Repl {
 
     pub fn list(&mut self, user_namespace: usize) -> ReplResult<()> {
         println!("Available functions:");
-        for (name, _) in self.program.namespaces[user_namespace].functions.iter() {
+        for name in self.program.namespaces[user_namespace].functions.keys() {
             println!("  {name}");
         }
-        for import in self.program.namespaces[user_namespace].imports.iter() {
+        for import in &self.program.namespaces[user_namespace].imports {
             match &import.naming {
                 ImportNaming::Wildcard => {
-                    for (name, _) in self.program.namespaces[import.id].functions.iter() {
+                    for name in self.program.namespaces[import.id].functions.keys() {
                         println!("  {}", name);
                     }
                 }
                 ImportNaming::Named(names) => {
-                    for name in names.iter() {
+                    for name in names {
                         println!("  {}", name);
                     }
                 }
                 ImportNaming::Scoped(prefix) => {
-                    for (name, _) in self.program.namespaces[import.id].functions.iter() {
+                    for name in self.program.namespaces[import.id].functions.keys() {
                         println!("  {prefix}.{}", name);
                     }
                 }
             }
         }
         println!("Intrinsics:");
-        for IntrinsicData { name, .. } in get_intrinsics().iter() {
+        for IntrinsicData { name, .. } in get_intrinsics() {
             println!("  {name}");
         }
 
@@ -259,10 +259,10 @@ impl Repl {
     }
 
     fn write_prompt(&self, io: &mut StdoutLock) -> Result<(), std::io::Error> {
-        if !self.snapshot.stack.is_empty() {
-            write!(io, "{:?} > ", self.snapshot.stack)?;
-        } else {
+        if self.snapshot.stack.is_empty() {
             write!(io, "> ")?;
+        } else {
+            write!(io, "{:?} > ", self.snapshot.stack)?;
         }
 
         Ok(())
@@ -301,7 +301,7 @@ impl Repl {
                 "list" => self.list(user_namespace)?,
                 "clear" => self.snapshot.stack.clear(),
                 c => self.load_code(user_namespace, c)?,
-            };
+            }
         }
     }
 }

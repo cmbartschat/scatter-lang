@@ -41,7 +41,7 @@ pub fn analyze_condition(analysis: &Analysis, b: &Block) -> BlockAnalysisResult 
 
 pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
     let mut a = Arity::noop();
-    for term in b.terms.iter() {
+    for term in &b.terms {
         a.serial(&analyze_term(analysis, term)?);
     }
     Ok(a)
@@ -95,7 +95,7 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
                 Ok(())
             };
 
-            for arm in branch.arms.iter() {
+            for arm in &branch.arms {
                 let condition_arity = analyze_condition(analysis, &arm.0)?;
                 running.serial(&condition_arity);
 
@@ -175,13 +175,13 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
 
                 if let Some(pre) = pre_arity.as_ref() {
                     record_next_exit_arity(&mut running_arity, &mut possible_arity, pre)?;
-                };
+                }
 
                 running_arity.serial(&main_arity);
 
                 if let Some(post) = post_arity.as_ref() {
                     record_next_exit_arity(&mut running_arity, &mut possible_arity, post)?;
-                };
+                }
             }
 
             Ok(possible_arity.expect("Must have filled possible_arity at least once"))
@@ -209,7 +209,7 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
 
         for (i, namespace) in program.namespaces.iter().enumerate() {
             analysis.namespace = i;
-            for (_, func) in namespace.functions.iter() {
+            for func in namespace.functions.values() {
                 if get_arity_at(&mut analysis.arities, i).contains_key(&func.name) {
                     continue;
                 }
@@ -217,7 +217,7 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
                     Err(AnalysisError::Pending) => {}
                     e => {
                         resolved_something = true;
-                        get_arity_at(&mut analysis.arities, i).insert(func.name.to_owned(), e);
+                        get_arity_at(&mut analysis.arities, i).insert(func.name.clone(), e);
                     }
                 }
             }

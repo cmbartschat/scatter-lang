@@ -49,9 +49,9 @@ impl Program {
     pub fn add_functions(&mut self, namespace: NamespaceId, functions: &[Function]) {
         let namespace = &mut self.namespaces[namespace];
 
-        functions.iter().for_each(|f| {
+        for f in functions {
             namespace.functions.insert(f.name.clone(), f.clone());
-        });
+        }
     }
 
     pub fn add_imports(&mut self, namespace: NamespaceId, imports: Vec<NamespaceImport>) {
@@ -81,7 +81,7 @@ impl Program {
             return Some(same_namespace);
         }
 
-        for import in current.imports.iter() {
+        for import in &current.imports {
             match &import.naming {
                 ImportNaming::Wildcard => {
                     if let Some(other_namespace) =

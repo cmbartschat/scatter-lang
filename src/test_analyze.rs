@@ -103,14 +103,14 @@ mod tests {
     #[test]
     fn branch_5() {
         assert_fn_arity(
-            r#"
+            r"
 fn: {
   {
     (1) true
     (dup) - - - -
     (drop drop drop)
   }
-}"#,
+}",
             "- b",
         );
     }
@@ -118,14 +118,14 @@ fn: {
     #[test]
     fn branch_6() {
         assert_fn_arity(
-            r#"
+            r"
 fn: {
   {
     (0) true
     (0) - - - -
     (0)
   }
-}"#,
+}",
             "-",
         );
     }
@@ -334,11 +334,11 @@ fn: {
     #[test]
     fn test_generic_7() {
         assert_fn_arity(
-            r#"
+            r"
 fn: {
   swap ++ swap
 }
-     "#,
+     ",
             "n 0 - n 0",
         );
     }

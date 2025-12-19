@@ -10,7 +10,7 @@ pub enum OwnedValue {
     Address(usize, String),
 }
 
-impl<'a> From<Value<'a>> for OwnedValue {
+impl From<Value<'_>> for OwnedValue {
     fn from(value: Value) -> Self {
         match value {
             Value::String(v) => OwnedValue::String(v.into()),
@@ -21,7 +21,7 @@ impl<'a> From<Value<'a>> for OwnedValue {
     }
 }
 
-impl<'a> From<&OwnedValue> for Value<'a> {
+impl From<&OwnedValue> for Value<'_> {
     fn from(value: &OwnedValue) -> Self {
         match value {
             OwnedValue::String(v) => Value::String(v.to_string().into()),
@@ -52,7 +52,7 @@ impl Debug for OwnedValue {
 
 impl From<i32> for OwnedValue {
     fn from(value: i32) -> Self {
-        Self::Number(value as f64)
+        Self::Number(f64::from(value))
     }
 }
 

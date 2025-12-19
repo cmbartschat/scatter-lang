@@ -31,7 +31,7 @@ mod tests {
 
     #[test]
     fn exhaustive() {
-        for IntrinsicData { name, .. } in get_intrinsics().iter() {
+        for IntrinsicData { name, .. } in get_intrinsics() {
             if SKIPPED_INTRINSICS.contains(name) {
                 continue;
             }
@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn intrinsics_symbols() {
-        for IntrinsicData { name, .. } in get_intrinsics().iter() {
+        for IntrinsicData { name, .. } in get_intrinsics() {
             let c_name = get_intrinsic_codegen_name(name).unwrap();
             for c in c_name.chars() {
                 assert!(
@@ -60,8 +60,8 @@ mod tests {
 
     #[test]
     fn intrinsics_codegen_test() {
-        static C_DEFINITIONS: &'static str = include_str!("./codegen/c.h");
-        static JS_DEFINITIONS: &'static str = include_str!("./codegen/js.js");
+        static C_DEFINITIONS: &str = include_str!("./codegen/c.h");
+        static JS_DEFINITIONS: &str = include_str!("./codegen/js.js");
 
         let js_exceptions = [];
         let c_exceptions = [];

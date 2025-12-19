@@ -123,7 +123,7 @@ fn to_char(i: &mut Interpreter) -> InterpreterResult {
         return Err("to_ascii only works on strings with length: 1");
     }
     let byte = s.bytes().next().unwrap();
-    i.push(byte as f64)
+    i.push(f64::from(byte))
 }
 
 fn from_char(i: &mut Interpreter) -> InterpreterResult {
@@ -135,7 +135,7 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
         return Err("from_char only works with normal numbers");
     }
     let v = s as u32;
-    if !(0..=u8::MAX as u32).contains(&v) {
+    if !(0..=u32::from(u8::MAX)).contains(&v) {
         return Err("from_char only works with numbers 0-255");
     }
     let Some(char) = char::from_u32(v) else {
@@ -147,7 +147,7 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
 fn string_index(i: &mut Interpreter) -> InterpreterResult {
     let needle = i.take_string()?;
     let haystack = i.take_string()?;
-    let location = haystack.find(&*needle).map(|e| e as f64).unwrap_or(-1f64);
+    let location = haystack.find(&*needle).map_or(-1f64, |e| e as f64);
     i.push(location)
 }
 
@@ -177,11 +177,11 @@ fn readline(i: &mut Interpreter) -> InterpreterResult {
 
 fn assert(i: &mut Interpreter) -> InterpreterResult {
     let message = i.take_string()?;
-    if !i.take()?.is_truthy() {
+    if i.take()?.is_truthy() {
+        Ok(())
+    } else {
         eprintln!("Assertion failed: {}", message);
         Err("Assertion failed")
-    } else {
-        Ok(())
     }
 }
 // Codegen Intrinsics End
@@ -191,7 +191,7 @@ fn eval_i(i: &mut Interpreter) -> InterpreterResult {
         Value::Address(namespace, name) => {
             if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
                 return func(i);
-            };
+            }
             i.evaluate_namespaced_function(namespace, &name)
         }
         _ => Err("Expected function pointer on top of stack"),
@@ -285,13 +285,16 @@ fn create_lookup_table() -> Vec<Option<&'static IntrinsicData>> {
         res.push(None);
     }
 
-    v.iter().for_each(|f| {
+    for f in v {
         let index = hash_name(f.name);
-        if res[index].is_some() {
-            panic!("Hash collision for {:?} ({})", f.name, index);
-        }
+        assert!(
+            res[index].is_none(),
+            "Hash collision for {:?} ({})",
+            f.name,
+            index
+        );
         res[index] = Some(f);
-    });
+    }
 
     res
 }
