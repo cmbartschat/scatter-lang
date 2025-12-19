@@ -68,6 +68,11 @@ end_suite
 "hi" "bye" == false should_equal
 true true == true should_equal
 false true == false should_equal
+'a' "a" == true should_equal
+'"' "\"" == true should_equal
+'\'' "'" == true should_equal
+'\n' "
+" == true should_equal
 end_suite
 
 "<" start_suite

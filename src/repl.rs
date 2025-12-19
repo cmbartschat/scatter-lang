@@ -15,6 +15,7 @@ use crate::{
     lang::{ImportLocation, ImportNaming, Module},
     parser::{ParseError, parse},
     program::{NamespaceId, NamespaceImport, Program},
+    tokenizer::TokenizeError,
 };
 
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
@@ -65,8 +66,11 @@ fn stringify_absolute_path(path: Option<&Path>) -> String {
 fn parse_error_to_cow(path: Option<&Path>, value: ParseError) -> Cow<'static, str> {
     let file = stringify_absolute_path(path);
     match value {
-        ParseError::UnboundedString(loc) => {
+        ParseError::Tokenization(TokenizeError::UnboundedString(loc)) => {
             Cow::<str>::from(format!("{file}:{:?}: Unclosed string literal", loc))
+        }
+        ParseError::Tokenization(TokenizeError::InvalidStringEscape(loc, c)) => {
+            Cow::<str>::from(format!("{file}:{:?}: Invalid string escape: \\{c}", loc))
         }
         ParseError::Location(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
         ParseError::Range(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
@@ -156,12 +160,13 @@ impl Repl {
             Err(e) => match e {
                 ParseError::UnexpectedEnd(_)
                 | ParseError::UnclosedExpression(..)
-                | ParseError::UnboundedString(_) => {
+                | ParseError::Tokenization(TokenizeError::UnboundedString(_)) => {
                     std::mem::swap(&mut full_source, &mut self.pending_code);
                     return Ok(());
                 }
-                e @ ParseError::Location(..) => return Err(parse_error_to_cow(None, e)),
-                e @ ParseError::Range(..) => return Err(parse_error_to_cow(None, e)),
+                e @ ParseError::Tokenization(TokenizeError::InvalidStringEscape(..))
+                | e @ ParseError::Location(..)
+                | e @ ParseError::Range(..) => return Err(parse_error_to_cow(None, e)),
             },
         };
         self.prepare_code(&ast, id, base.as_path())?;

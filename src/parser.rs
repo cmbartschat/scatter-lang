@@ -378,7 +378,7 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
 
 #[derive(Debug)]
 pub enum ParseError {
-    UnboundedString(SourceLocation),
+    Tokenization(TokenizeError),
     UnclosedExpression(&'static str, SourceLocation),
     UnexpectedEnd(&'static str),
     Location(&'static str, SourceLocation),
@@ -387,9 +387,7 @@ pub enum ParseError {
 
 pub fn parse(source: &str) -> ParseResult<Module> {
     let mut tokens = tokenize(source)
-        .map_err(|f| match f {
-            TokenizeError::UnboundedString(s) => ParseError::UnboundedString(s),
-        })?
+        .map_err(ParseError::Tokenization)?
         .into_iter()
         .peekable();
     parse_module(&mut tokens)

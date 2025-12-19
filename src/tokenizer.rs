@@ -39,10 +39,17 @@ fn do_symbol(
     tokens.push(Token::Symbol(symbol).at_location(*current));
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum StringDelimiter {
+    Single,
+    Double,
+}
+
 #[derive(Debug)]
 struct StringParseState {
     start: SourceLocation,
     word: String,
+    delimiter: StringDelimiter,
     escape_next: bool,
 }
 
@@ -67,9 +74,10 @@ impl ParseState {
         })
     }
 
-    pub fn string(start: SourceLocation) -> Self {
+    pub fn string(start: SourceLocation, delimiter: StringDelimiter) -> Self {
         Self::String(StringParseState {
             start,
+            delimiter,
             word: String::new(),
             escape_next: false,
         })
@@ -83,6 +91,7 @@ impl ParseState {
 #[derive(Debug)]
 pub enum TokenizeError {
     UnboundedString(SourceLocation),
+    InvalidStringEscape(SourceLocation, char),
 }
 
 pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
@@ -121,11 +130,24 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                 let escape_next = &mut s.escape_next;
                 let word = &mut s.word;
                 if *escape_next {
-                    word.push(char);
+                    word.push(match char {
+                        c @ '\\' | c @ '"' | c @ '\'' => c,
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        '0' => '\0',
+                        _ => {
+                            return Err(TokenizeError::InvalidStringEscape(
+                                prev_location
+                                    .expect("Must have had a previous character to be escaping"),
+                                char,
+                            ));
+                        }
+                    });
                     *escape_next = false;
                 } else {
-                    match char {
-                        '"' => {
+                    match (char, s.delimiter) {
+                        ('"', StringDelimiter::Double) | ('\'', StringDelimiter::Single) => {
                             tokens.push(
                                 Token::String(word.clone()).with_range((s.start, current_location)),
                             );
@@ -134,7 +156,7 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                                 None => return Ok(tokens),
                             }
                         }
-                        '\\' => {
+                        ('\\', _) => {
                             s.escape_next = true;
                         }
                         _ => {
@@ -169,7 +191,11 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                 match char {
                     '"' => {
                         clear_and_push_word(&mut tokens, s, &prev_location, &None);
-                        state = ParseState::string(current_location);
+                        state = ParseState::string(current_location, StringDelimiter::Double);
+                    }
+                    '\'' => {
+                        clear_and_push_word(&mut tokens, s, &prev_location, &None);
+                        state = ParseState::string(current_location, StringDelimiter::Single);
                     }
                     '/' if chars.peek() == Some(&'/') => {
                         state = ParseState::comment();
