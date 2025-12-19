@@ -6,7 +6,7 @@ use crate::{
 
 static DEFS: &str = include_str!("./c.h");
 
-fn codegen_loop_condition(ctx: &mut CodegenContext, block: &Option<Block>) {
+fn codegen_loop_condition(ctx: &mut CodegenContext, block: Option<&Block>) {
     if let Some(e) = block {
         codegen_block(ctx, e);
         ctx.target.write_line("{");
@@ -24,9 +24,9 @@ fn codegen_loop_condition(ctx: &mut CodegenContext, block: &Option<Block>) {
 fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
     ctx.target.write_line("while (1) {");
     ctx.target.increase_indent();
-    codegen_loop_condition(ctx, &loop_t.pre_condition);
+    codegen_loop_condition(ctx, loop_t.pre_condition.as_ref());
     codegen_block(ctx, &loop_t.body);
-    codegen_loop_condition(ctx, &loop_t.post_condition);
+    codegen_loop_condition(ctx, loop_t.post_condition.as_ref());
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
 }

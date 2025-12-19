@@ -63,7 +63,7 @@ fn stringify_absolute_path(path: Option<&Path>) -> String {
     stripped.display().to_string()
 }
 
-fn parse_error_to_cow(path: Option<&Path>, value: ParseError) -> Cow<'static, str> {
+fn parse_error_to_cow(path: Option<&Path>, value: &ParseError) -> Cow<'static, str> {
     let file = stringify_absolute_path(path);
     match value {
         ParseError::Tokenization(TokenizeError::UnboundedString(loc)) => {
@@ -110,7 +110,7 @@ impl Repl {
                         return Err(format!("Invalid import: {}", path).into());
                     }
                     let resolved = context.join(path);
-                    let dependency_id = self.prepare_dependency(resolved)?;
+                    let dependency_id = self.prepare_dependency(&resolved)?;
                     imports.push(NamespaceImport {
                         id: dependency_id,
                         naming: import.naming.clone(),
@@ -124,23 +124,23 @@ impl Repl {
         Ok(())
     }
 
-    pub fn prepare_dependency(&mut self, path: PathBuf) -> ReplResult<NamespaceId> {
-        match self.loaded_paths.get(&path) {
+    pub fn prepare_dependency(&mut self, path: &Path) -> ReplResult<NamespaceId> {
+        match self.loaded_paths.get(path) {
             Some(e) => Ok(*e),
             None => self.prepare_file(path).map(|e| e.0),
         }
     }
 
-    pub fn prepare_file(&mut self, path: PathBuf) -> ReplResult<(NamespaceId, Module)> {
+    pub fn prepare_file(&mut self, path: &Path) -> ReplResult<(NamespaceId, Module)> {
         if !path.is_absolute() {
             return Err("File paths should be absolute".into());
         }
 
         let id = self.program.allocate_namespace();
-        self.loaded_paths.insert(path.clone(), id);
+        self.loaded_paths.insert(path.to_owned(), id);
 
-        let source = std::fs::read_to_string(&path).map_err(|_| "Failed to read file")?;
-        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(&path), e))?;
+        let source = std::fs::read_to_string(path).map_err(|_| "Failed to read file")?;
+        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(path), &e))?;
         let Some(context) = path.parent() else {
             return Err("Unable to resolve file path context".into());
         };
@@ -168,14 +168,14 @@ impl Repl {
                 }
                 e @ (ParseError::Tokenization(TokenizeError::InvalidStringEscape(..))
                 | ParseError::Location(..)
-                | ParseError::Range(..)) => return Err(parse_error_to_cow(None, e)),
+                | ParseError::Range(..)) => return Err(parse_error_to_cow(None, &e)),
             },
         };
         self.prepare_code(&ast, id, base.as_path())?;
-        self.consume_ast(id, ast)
+        self.consume_ast(id, &ast)
     }
 
-    fn consume_ast(&mut self, namespace: NamespaceId, ast: Module) -> ReplResult<()> {
+    fn consume_ast(&mut self, namespace: NamespaceId, ast: &Module) -> ReplResult<()> {
         if let Some(lang) = &self.args.generate {
             match lang.as_str() {
                 "c" => c_codegen_module(&self.program, namespace, &ast.body),
@@ -216,8 +216,8 @@ impl Repl {
     }
 
     pub fn load_file(&mut self, path: &str) -> ReplResult<()> {
-        let (namespace_id, ast) = self.prepare_file(self.base_path.join(PathBuf::from(path)))?;
-        self.consume_ast(namespace_id, ast)
+        let (namespace_id, ast) = self.prepare_file(&self.base_path.join(PathBuf::from(path)))?;
+        self.consume_ast(namespace_id, &ast)
     }
 
     pub fn list(&mut self, user_namespace: usize) -> ReplResult<()> {

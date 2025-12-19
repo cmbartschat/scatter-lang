@@ -250,7 +250,7 @@ impl Arity {
             (Some(ResultantType::Dependent(i)), Type::Unknown) => ResultantType::Dependent(i),
             (Some(ResultantType::Dependent(i)), _) => {
                 for x in i.iter() {
-                    if term.assignable_to(&self.pops[x]) {
+                    if term.assignable_to(self.pops[x]) {
                         for push in &mut self.pushes {
                             if push.references(x) {
                                 *push = ResultantType::Normal(term);

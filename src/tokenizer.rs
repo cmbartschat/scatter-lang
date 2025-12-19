@@ -3,8 +3,8 @@ use crate::lang::{ParsedToken, SourceLocation, Symbol, Token};
 fn clear_and_push_word(
     tokens: &mut Vec<ParsedToken>,
     state: &mut NormalParseState,
-    prev_location: &Option<SourceLocation>,
-    next_location: &Option<SourceLocation>,
+    prev_location: Option<&SourceLocation>,
+    next_location: Option<&SourceLocation>,
 ) {
     let start = state.start;
     if let Some(next) = next_location {
@@ -31,9 +31,9 @@ fn do_symbol(
     tokens: &mut Vec<ParsedToken>,
     state: &mut NormalParseState,
     symbol: Symbol,
-    prev: &Option<SourceLocation>,
+    prev: Option<&SourceLocation>,
     current: &SourceLocation,
-    next: &Option<SourceLocation>,
+    next: Option<&SourceLocation>,
 ) {
     clear_and_push_word(tokens, state, prev, next);
     tokens.push(Token::Symbol(symbol).at_location(*current));
@@ -230,29 +230,39 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                         &mut tokens,
                         s,
                         sym,
-                        &prev_location,
+                        prev_location.as_ref(),
                         &current_location,
-                        &next_location,
+                        next_location.as_ref(),
                     );
                     continue;
                 }
                 match char {
                     '"' => {
-                        clear_and_push_word(&mut tokens, s, &prev_location, &None);
+                        clear_and_push_word(&mut tokens, s, prev_location.as_ref(), None);
                         state = ParseState::string(current_location, StringDelimiter::Double);
                     }
                     '\'' => {
-                        clear_and_push_word(&mut tokens, s, &prev_location, &None);
+                        clear_and_push_word(&mut tokens, s, prev_location.as_ref(), None);
                         state = ParseState::string(current_location, StringDelimiter::Single);
                     }
                     '/' if chars.peek() == Some(&'/') => {
                         state = ParseState::comment();
                     }
                     ' ' => {
-                        clear_and_push_word(&mut tokens, s, &prev_location, &next_location);
+                        clear_and_push_word(
+                            &mut tokens,
+                            s,
+                            prev_location.as_ref(),
+                            next_location.as_ref(),
+                        );
                     }
                     '\n' => {
-                        clear_and_push_word(&mut tokens, s, &prev_location, &next_location);
+                        clear_and_push_word(
+                            &mut tokens,
+                            s,
+                            prev_location.as_ref(),
+                            next_location.as_ref(),
+                        );
                         tokens.push(Token::Symbol(Symbol::LineEnd).at_location(current_location));
                     }
                     c => {
@@ -275,7 +285,7 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
         ParseState::LineComment => {}
         ParseState::String(s) => return Err(TokenizeError::UnboundedString(s.start)),
         ParseState::Normal(s) => {
-            clear_and_push_word(&mut tokens, s, &saved_locations.map(|f| f.0), &None);
+            clear_and_push_word(&mut tokens, s, saved_locations.map(|f| f.0).as_ref(), None);
         }
     }
 

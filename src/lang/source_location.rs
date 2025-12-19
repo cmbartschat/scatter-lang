@@ -58,6 +58,12 @@ where
     }
 }
 
+impl From<&SourceLocation> for SourceLocation {
+    fn from(value: &SourceLocation) -> Self {
+        *value
+    }
+}
+
 impl Debug for SourceRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.start.character == self.end.character {

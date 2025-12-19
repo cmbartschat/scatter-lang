@@ -8,7 +8,7 @@ static DEFS: &str = include_str!("./rs-defs.rs");
 static INTRINSICS: &str = include_str!("../intrinsics.rs");
 static INTERPRETER: &str = include_str!("../interpreter.rs");
 
-fn codegen_loop_condition(ctx: &mut CodegenContext, block: &Option<Block>) {
+fn codegen_loop_condition(ctx: &mut CodegenContext, block: Option<&Block>) {
     if let Some(e) = block {
         codegen_block(ctx, e);
         ctx.target.write_line("if !c.check_condition()? { break }");
@@ -18,9 +18,9 @@ fn codegen_loop_condition(ctx: &mut CodegenContext, block: &Option<Block>) {
 fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
     ctx.target.write_line("loop {");
     ctx.target.increase_indent();
-    codegen_loop_condition(ctx, &loop_t.pre_condition);
+    codegen_loop_condition(ctx, loop_t.pre_condition.as_ref());
     codegen_block(ctx, &loop_t.body);
-    codegen_loop_condition(ctx, &loop_t.post_condition);
+    codegen_loop_condition(ctx, loop_t.post_condition.as_ref());
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
 }

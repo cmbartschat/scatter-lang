@@ -5,8 +5,8 @@ mod tests {
     use crate::parser::parse;
     use crate::program::{NamespaceImport, Program};
 
-    fn interpret(ast: Module) -> Vec<OwnedValue> {
-        Interpreter::begin(&Program::new_from_module(&ast))
+    fn interpret(ast: &Module) -> Vec<OwnedValue> {
+        Interpreter::begin(&Program::new_from_module(ast))
             .execute(&ast.body)
             .unwrap()
             .stack
@@ -21,7 +21,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![462f64.into()]);
     }
@@ -35,7 +35,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![378f64.into()]);
     }
@@ -49,7 +49,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![80f64.into()]);
     }
@@ -63,7 +63,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![5f64.into()]);
     }
@@ -77,7 +77,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![true.into()]);
     }
@@ -91,7 +91,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![false.into()]);
     }
@@ -105,7 +105,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![true.into()]);
     }
@@ -119,7 +119,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![false.into()]);
     }
@@ -133,7 +133,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![false.into()]);
     }
@@ -147,7 +147,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![true.into()]);
     }
@@ -167,7 +167,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![42.into()]);
     }
@@ -210,7 +210,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![5.into()]);
     }
@@ -252,7 +252,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = interpret(ast);
+        let result = interpret(&ast);
 
         assert_eq!(result, vec![6765.into()]);
     }

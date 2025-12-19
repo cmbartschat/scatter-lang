@@ -8,8 +8,8 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn assignable_to(&self, other: &Self) -> bool {
-        if other == &Self::Unknown {
+    pub fn assignable_to(self, other: Self) -> bool {
+        if other == Self::Unknown {
             return true;
         }
         if self == other {
@@ -18,7 +18,7 @@ impl Type {
         false
     }
 
-    pub fn stringify(&self) -> &'static str {
+    pub fn stringify(self) -> &'static str {
         match self {
             Type::Bool => "b",
             Type::Number => "n",
@@ -29,9 +29,9 @@ impl Type {
     }
 
     pub fn union(self, other: Self) -> Self {
-        if self.assignable_to(&other) {
+        if self.assignable_to(other) {
             other
-        } else if other.assignable_to(&self) {
+        } else if other.assignable_to(self) {
             self
         } else {
             Self::Unknown
@@ -57,15 +57,15 @@ mod tests {
 
     #[test]
     fn assignable_to() {
-        assert!(Type::Bool.assignable_to(&Type::Bool));
-        assert!(!Type::Bool.assignable_to(&Type::Number));
-        assert!(!Type::Bool.assignable_to(&Type::String));
-        assert!(Type::Bool.assignable_to(&Type::Unknown));
+        assert!(Type::Bool.assignable_to(Type::Bool));
+        assert!(!Type::Bool.assignable_to(Type::Number));
+        assert!(!Type::Bool.assignable_to(Type::String));
+        assert!(Type::Bool.assignable_to(Type::Unknown));
 
-        assert!(!Type::Unknown.assignable_to(&Type::Bool));
-        assert!(!Type::Unknown.assignable_to(&Type::Number));
-        assert!(!Type::Unknown.assignable_to(&Type::String));
-        assert!(Type::Unknown.assignable_to(&Type::Unknown));
+        assert!(!Type::Unknown.assignable_to(Type::Bool));
+        assert!(!Type::Unknown.assignable_to(Type::Number));
+        assert!(!Type::Unknown.assignable_to(Type::String));
+        assert!(Type::Unknown.assignable_to(Type::Unknown));
     }
 
     #[test]
