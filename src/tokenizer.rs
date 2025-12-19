@@ -45,12 +45,66 @@ enum StringDelimiter {
     Double,
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum EscapeState {
+    EscapeNext,
+    Hex(Option<char>),
+}
+
+fn parse_hex(c: char) -> Option<u8> {
+    let v = c as u32;
+    if v >= '0' as u32 && v <= '9' as u32 {
+        return Some((v - '0' as u32) as u8);
+    }
+
+    if v >= 'a' as u32 && v <= 'f' as u32 {
+        return Some((v - 'a' as u32) as u8 + 10);
+    }
+
+    if v >= 'A' as u32 && v <= 'F' as u32 {
+        return Some((v - 'A' as u32) as u8 + 10);
+    }
+
+    None
+}
+
+impl EscapeState {
+    pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), ()> {
+        let res = match self {
+            EscapeState::EscapeNext => match char {
+                c @ '\\' | c @ '"' | c @ '\'' => c,
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                '0' => '\0',
+                'x' => return Ok((Some(Self::Hex(None)), None)),
+                _ => {
+                    return Err(());
+                }
+            },
+            Self::Hex(x) => match x {
+                Some(prev_char) => {
+                    let (Some(high_value), Some(low_value)) =
+                        (parse_hex(prev_char), parse_hex(char))
+                    else {
+                        return Err(());
+                    };
+                    (high_value * 16 + low_value) as char
+                }
+                None => return Ok((Some(Self::Hex(Some(char))), None)),
+            },
+        };
+
+        Ok((None, Some(res)))
+    }
+}
+
 #[derive(Debug)]
 struct StringParseState {
     start: SourceLocation,
     word: String,
     delimiter: StringDelimiter,
-    escape_next: bool,
+    escape: Option<EscapeState>,
 }
 
 #[derive(Debug)]
@@ -79,7 +133,7 @@ impl ParseState {
             start,
             delimiter,
             word: String::new(),
-            escape_next: false,
+            escape: None,
         })
     }
 
@@ -127,26 +181,20 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
 
         match state {
             ParseState::String(ref mut s) => {
-                let escape_next = &mut s.escape_next;
                 let word = &mut s.word;
-                if *escape_next {
-                    word.push(match char {
-                        c @ '\\' | c @ '"' | c @ '\'' => c,
-                        'n' => '\n',
-                        'r' => '\r',
-                        't' => '\t',
-                        '0' => '\0',
-                        _ => {
-                            return Err(TokenizeError::InvalidStringEscape(
-                                prev_location
-                                    .expect("Must have had a previous character to be escaping"),
-                                char,
-                            ));
+                match s.escape {
+                    Some(e) => match e.next(char) {
+                        Ok((next_escape, c)) => {
+                            s.escape = next_escape;
+                            if let Some(c) = c {
+                                word.push(c);
+                            }
                         }
-                    });
-                    *escape_next = false;
-                } else {
-                    match (char, s.delimiter) {
+                        Err(()) => {
+                            return Err(TokenizeError::InvalidStringEscape(current_location, char));
+                        }
+                    },
+                    None => match (char, s.delimiter) {
                         ('"', StringDelimiter::Double) | ('\'', StringDelimiter::Single) => {
                             tokens.push(
                                 Token::String(word.clone()).with_range((s.start, current_location)),
@@ -157,12 +205,12 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
                             }
                         }
                         ('\\', _) => {
-                            s.escape_next = true;
+                            s.escape = Some(EscapeState::EscapeNext);
                         }
                         _ => {
                             word.push(char);
                         }
-                    }
+                    },
                 }
             }
             ParseState::Normal(ref mut s) => {

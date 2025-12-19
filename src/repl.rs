@@ -70,7 +70,10 @@ fn parse_error_to_cow(path: Option<&Path>, value: ParseError) -> Cow<'static, st
             Cow::<str>::from(format!("{file}:{:?}: Unclosed string literal", loc))
         }
         ParseError::Tokenization(TokenizeError::InvalidStringEscape(loc, c)) => {
-            Cow::<str>::from(format!("{file}:{:?}: Invalid string escape: \\{c}", loc))
+            Cow::<str>::from(format!(
+                "{file}:{:?}: Invalid character in escape sequence: {c:?}",
+                loc
+            ))
         }
         ParseError::Location(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
         ParseError::Range(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
