@@ -1,44 +1,5 @@
 use crate::lang::{ParsedToken, SourceLocation, Symbol, Token};
 
-fn clear_and_push_word(
-    tokens: &mut Vec<ParsedToken>,
-    state: &mut NormalParseState,
-    prev_location: Option<&SourceLocation>,
-    next_location: Option<&SourceLocation>,
-) {
-    let start = state.start;
-    if let Some(next) = next_location {
-        state.start = *next;
-    }
-    if state.word.is_empty() {
-        return;
-    }
-    let end = prev_location.expect("Must have previous location if word is not empty");
-    let word = &mut state.word;
-    let token = match word.parse::<f64>() {
-        Ok(v) => Token::Number(v),
-        Err(_) => match word.as_str() {
-            "true" => Token::Bool(true),
-            "false" => Token::Bool(false),
-            _ => Token::Name(word.clone()),
-        },
-    };
-    tokens.push(token.with_range((start, end)));
-    word.clear();
-}
-
-fn do_symbol(
-    tokens: &mut Vec<ParsedToken>,
-    state: &mut NormalParseState,
-    symbol: Symbol,
-    prev: Option<&SourceLocation>,
-    current: &SourceLocation,
-    next: Option<&SourceLocation>,
-) {
-    clear_and_push_word(tokens, state, prev, next);
-    tokens.push(Token::Symbol(symbol).at_location(*current));
-}
-
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum StringDelimiter {
     Single,
@@ -107,10 +68,159 @@ struct StringParseState {
     escape: Option<EscapeState>,
 }
 
+impl StringParseState {
+    pub fn next(
+        mut self,
+        tokens: &mut Vec<ParsedToken>,
+        char: char,
+        _next_char: Option<char>,
+        loc: &SourcePositions,
+    ) -> Result<Option<ParseState>, TokenizeError> {
+        let word = &mut self.word;
+        match self.escape {
+            Some(e) => match e.next(char) {
+                Ok((next_escape, c)) => {
+                    self.escape = next_escape;
+                    if let Some(c) = c {
+                        word.push(c);
+                    }
+                }
+                Err(()) => {
+                    return Err(TokenizeError::InvalidStringEscape(loc.current, char));
+                }
+            },
+            None => match (char, self.delimiter) {
+                ('"', StringDelimiter::Double) | ('\'', StringDelimiter::Single) => {
+                    tokens.push(Token::String(word.clone()).with_range((self.start, loc.current)));
+                    match loc.next {
+                        Some(next_location) => {
+                            return Ok(Some(ParseState::normal(next_location)));
+                        }
+                        None => return Ok(None),
+                    }
+                }
+                ('\\', _) => {
+                    self.escape = Some(EscapeState::EscapeNext);
+                }
+                _ => {
+                    word.push(char);
+                }
+            },
+        }
+        Ok(Some(ParseState::String(self)))
+    }
+}
+
 #[derive(Debug)]
 struct NormalParseState {
     start: SourceLocation,
     word: String,
+}
+
+#[derive(Clone)]
+struct SourcePositions {
+    prev: Option<SourceLocation>,
+    current: SourceLocation,
+    next: Option<SourceLocation>,
+}
+
+impl SourcePositions {
+    pub fn start(first_char: char) -> Self {
+        Self {
+            prev: None,
+            current: SourceLocation::start(),
+            next: Some(SourceLocation::start().add(first_char)),
+        }
+    }
+    pub fn next(self, c: char) -> Self {
+        Self {
+            prev: Some(self.current),
+            current: self
+                .next
+                .expect("Must have next if we're getting another char"),
+            next: self.next.map(|f| f.add(c)),
+        }
+    }
+}
+
+impl NormalParseState {
+    pub fn take(&mut self) -> Option<Token> {
+        if self.word.is_empty() {
+            return None;
+        }
+        let word = &mut self.word;
+        let token = match word.parse::<f64>() {
+            Ok(v) => Token::Number(v),
+            Err(_) => match word.as_str() {
+                "true" => Token::Bool(true),
+                "false" => Token::Bool(false),
+                _ => Token::Name(word.clone()),
+            },
+        };
+        word.clear();
+        Some(token)
+    }
+    pub fn finish(&mut self, tokens: &mut Vec<ParsedToken>, prev: Option<SourceLocation>) {
+        let Some(token) = self.take() else {
+            return;
+        };
+        let end = prev.expect("Must have previous location if word is not empty");
+        tokens.push(token.with_range((self.start, end)));
+    }
+
+    pub fn advance(&mut self, tokens: &mut Vec<ParsedToken>, loc: &SourcePositions) {
+        self.finish(tokens, loc.prev);
+        if let Some(next) = loc.next {
+            self.start = next;
+        }
+    }
+
+    pub fn next(
+        mut self,
+        tokens: &mut Vec<ParsedToken>,
+        char: char,
+        next_char: Option<char>,
+        loc: &SourcePositions,
+    ) -> ParseState {
+        if let Some(sym) = match char {
+            ':' => Some(Symbol::Colon),
+            '@' => Some(Symbol::At),
+            '{' => Some(Symbol::CurlyOpen),
+            '}' => Some(Symbol::CurlyClose),
+            '(' => Some(Symbol::ParenOpen),
+            ')' => Some(Symbol::ParenClose),
+            '[' => Some(Symbol::SquareOpen),
+            ']' => Some(Symbol::SquareClose),
+            '#' => Some(Symbol::Hash),
+            '\n' => Some(Symbol::LineEnd),
+            _ => None,
+        } {
+            self.advance(tokens, loc);
+            tokens.push(Token::Symbol(sym).at_location(loc.current));
+            return ParseState::Normal(self);
+        }
+        match char {
+            '"' => {
+                self.advance(tokens, loc);
+                return ParseState::string(loc.current, StringDelimiter::Double);
+            }
+            '\'' => {
+                self.advance(tokens, loc);
+                return ParseState::string(loc.current, StringDelimiter::Single);
+            }
+            '/' if next_char == Some('/') => {
+                return ParseState::comment();
+            }
+            ' ' => {
+                self.advance(tokens, loc);
+            }
+            c => {
+                self.word.push(c);
+            }
+        }
+
+        ParseState::Normal(self)
+    }
 }
 
 #[derive(Debug)]
@@ -140,6 +250,39 @@ impl ParseState {
     pub fn comment() -> Self {
         Self::LineComment
     }
+
+    pub fn finish(
+        self,
+        tokens: &mut Vec<ParsedToken>,
+        loc: Option<SourcePositions>,
+    ) -> Result<(), TokenizeError> {
+        match self {
+            ParseState::LineComment => Ok(()),
+            ParseState::String(s) => Err(TokenizeError::UnboundedString(s.start)),
+            ParseState::Normal(mut s) => {
+                s.finish(tokens, loc.and_then(|f| f.prev));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn next(
+        self,
+        tokens: &mut Vec<ParsedToken>,
+        char: char,
+        next_char: Option<char>,
+        loc: &SourcePositions,
+    ) -> Result<Option<ParseState>, TokenizeError> {
+        match self {
+            ParseState::String(s) => s.next(tokens, char, next_char, loc),
+            ParseState::Normal(s) => Ok(Some(s.next(tokens, char, next_char, loc))),
+            ParseState::LineComment => match (char, &loc.next) {
+                ('\n', Some(next)) => Ok(Some(ParseState::normal(next.to_owned()))),
+                ('\n', None) => Ok(None),
+                _ => Ok(Some(self)),
+            },
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -160,134 +303,21 @@ pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
         ParseState::normal(SourceLocation::start())
     };
 
-    let mut saved_locations: Option<(SourceLocation, Option<SourceLocation>)> = None;
+    let mut saved_loc: Option<SourcePositions> = None;
     while let Some(char) = chars.next() {
-        let (prev_location, current_location, next_location) = match saved_locations {
-            Some((saved_curr, Some(saved_next))) => (
-                Some(saved_curr),
-                saved_next,
-                chars.peek().map(|_| saved_next.add(char)),
-            ),
-            Some((_, None)) => {
-                panic!("Shouldn't happen, we should only loop if saved_next is set");
-            }
-            None => (
-                None,
-                SourceLocation::start(),
-                chars.peek().map(|_| SourceLocation::start().add(char)),
-            ),
+        let loc = match saved_loc {
+            Some(l) => l.next(char),
+            None => SourcePositions::start(char),
         };
-        saved_locations = Some((current_location, next_location));
-
-        match state {
-            ParseState::String(ref mut s) => {
-                let word = &mut s.word;
-                match s.escape {
-                    Some(e) => match e.next(char) {
-                        Ok((next_escape, c)) => {
-                            s.escape = next_escape;
-                            if let Some(c) = c {
-                                word.push(c);
-                            }
-                        }
-                        Err(()) => {
-                            return Err(TokenizeError::InvalidStringEscape(current_location, char));
-                        }
-                    },
-                    None => match (char, s.delimiter) {
-                        ('"', StringDelimiter::Double) | ('\'', StringDelimiter::Single) => {
-                            tokens.push(
-                                Token::String(word.clone()).with_range((s.start, current_location)),
-                            );
-                            match next_location {
-                                Some(next_location) => state = ParseState::normal(next_location),
-                                None => return Ok(tokens),
-                            }
-                        }
-                        ('\\', _) => {
-                            s.escape = Some(EscapeState::EscapeNext);
-                        }
-                        _ => {
-                            word.push(char);
-                        }
-                    },
-                }
-            }
-            ParseState::Normal(ref mut s) => {
-                if let Some(sym) = match char {
-                    ':' => Some(Symbol::Colon),
-                    '@' => Some(Symbol::At),
-                    '{' => Some(Symbol::CurlyOpen),
-                    '}' => Some(Symbol::CurlyClose),
-                    '(' => Some(Symbol::ParenOpen),
-                    ')' => Some(Symbol::ParenClose),
-                    '[' => Some(Symbol::SquareOpen),
-                    ']' => Some(Symbol::SquareClose),
-                    '#' => Some(Symbol::Hash),
-                    _ => None,
-                } {
-                    do_symbol(
-                        &mut tokens,
-                        s,
-                        sym,
-                        prev_location.as_ref(),
-                        &current_location,
-                        next_location.as_ref(),
-                    );
-                    continue;
-                }
-                match char {
-                    '"' => {
-                        clear_and_push_word(&mut tokens, s, prev_location.as_ref(), None);
-                        state = ParseState::string(current_location, StringDelimiter::Double);
-                    }
-                    '\'' => {
-                        clear_and_push_word(&mut tokens, s, prev_location.as_ref(), None);
-                        state = ParseState::string(current_location, StringDelimiter::Single);
-                    }
-                    '/' if chars.peek() == Some(&'/') => {
-                        state = ParseState::comment();
-                    }
-                    ' ' => {
-                        clear_and_push_word(
-                            &mut tokens,
-                            s,
-                            prev_location.as_ref(),
-                            next_location.as_ref(),
-                        );
-                    }
-                    '\n' => {
-                        clear_and_push_word(
-                            &mut tokens,
-                            s,
-                            prev_location.as_ref(),
-                            next_location.as_ref(),
-                        );
-                        tokens.push(Token::Symbol(Symbol::LineEnd).at_location(current_location));
-                    }
-                    c => {
-                        s.word.push(c);
-                    }
-                }
-            }
-            ParseState::LineComment => {
-                if char == '\n' {
-                    state = match next_location {
-                        Some(next) => ParseState::normal(next),
-                        None => return Ok(tokens),
-                    };
-                }
-            }
+        match state.next(&mut tokens, char, chars.peek().copied(), &loc) {
+            Ok(None) => return Ok(tokens),
+            Ok(Some(s)) => state = s,
+            Err(e) => return Err(e),
         }
+        saved_loc = Some(loc);
     }
 
-    match &mut state {
-        ParseState::LineComment => {}
-        ParseState::String(s) => return Err(TokenizeError::UnboundedString(s.start)),
-        ParseState::Normal(s) => {
-            clear_and_push_word(&mut tokens, s, saved_locations.map(|f| f.0).as_ref(), None);
-        }
-    }
+    state.finish(&mut tokens, saved_loc)?;
 
     Ok(tokens)
 }
