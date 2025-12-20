@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
-    io::{BufRead, StdinLock},
-    ops::Not,
+    io::{BufRead as _, StdinLock},
 };
 
 use crate::{
@@ -222,7 +221,7 @@ impl<'a> Interpreter<'a> {
                 None => {}
                 Some(b) => {
                     self.evaluate_block(b)?;
-                    if self.take()?.is_truthy().not() {
+                    if !self.take()?.is_truthy() {
                         return Ok(());
                     }
                 }
@@ -232,7 +231,7 @@ impl<'a> Interpreter<'a> {
                 None => {}
                 Some(b) => {
                     self.evaluate_block(b)?;
-                    if self.take()?.is_truthy().not() {
+                    if !self.take()?.is_truthy() {
                         return Ok(());
                     }
                 }

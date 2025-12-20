@@ -101,7 +101,7 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
             .find("// Codegen Interpreter End")
             .expect("Should contain definitions");
 
-        DEFS.to_string().replace(
+        DEFS.replace(
             "// Interpreter API",
             &INTERPRETER[definition_start..definition_end]
                 .replace("Value<'a>", "Value")

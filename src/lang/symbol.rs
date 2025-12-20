@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Write};
+use std::fmt::{Debug, Write as _};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Symbol {

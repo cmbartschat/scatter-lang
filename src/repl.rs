@@ -1,8 +1,7 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
-    io::{StdoutLock, Write},
-    ops::Not,
+    io::{StdoutLock, Write as _},
     path::{Path, PathBuf},
 };
 
@@ -193,7 +192,7 @@ impl Repl {
             for func in &ast.functions {
                 report_arity(&func.name, arities[namespace].get(&func.name));
             }
-            if ast.body.terms.is_empty().not() {
+            if !ast.body.terms.is_empty() {
                 report_arity(
                     "<body>",
                     Some(&analyze_block_in_namespace(

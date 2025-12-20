@@ -13,7 +13,7 @@ mod test_parser;
 mod tokenizer;
 use clap::Parser;
 
-use crate::repl::Repl;
+use crate::repl::{Repl, ReplError};
 
 #[derive(Parser, Debug)]
 pub struct ReplArgs {
@@ -28,23 +28,16 @@ pub struct ReplArgs {
     pub generate: Option<String>,
 }
 
-fn main() {
+fn main() -> Result<(), ReplError> {
     let args = ReplArgs::parse();
 
     if args.generate.is_some() && args.files.len() != 1 {
-        eprintln!("Expected exactly one file provided");
-        std::process::exit(1);
+        return Err("Expected exactly one file provided".into());
     }
 
     let repl = Repl::new(
         args,
         std::env::current_dir().expect("Could not get current directory"),
     );
-    match repl.run() {
-        Ok(()) => (),
-        Err(e) => {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        }
-    }
+    repl.run()
 }

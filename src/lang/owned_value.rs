@@ -24,10 +24,10 @@ impl From<Value<'_>> for OwnedValue {
 impl From<&OwnedValue> for Value<'_> {
     fn from(value: &OwnedValue) -> Self {
         match value {
-            OwnedValue::String(v) => Value::String(v.to_string().into()),
+            OwnedValue::String(v) => Value::String(v.clone().into()),
             OwnedValue::Number(v) => Value::Number(*v),
             OwnedValue::Bool(v) => Value::Bool(*v),
-            OwnedValue::Address(n, name) => Value::Address(*n, name.to_string()),
+            OwnedValue::Address(n, name) => Value::Address(*n, name.clone()),
         }
     }
 }

@@ -21,7 +21,7 @@ mod tests {
     fn assert_fn_arity(code: &str, expected_arity: &str) {
         let ast = parse(code).unwrap();
         let a = analyze(&ast);
-        let actual_arity = a.arities.get("fn").unwrap().as_ref().unwrap().stringify();
+        let actual_arity = a.arities["fn"].as_ref().unwrap().stringify();
         assert_eq!(actual_arity, expected_arity);
     }
 
@@ -34,7 +34,7 @@ mod tests {
     fn assert_fn_err(code: &str, expected_error: AnalysisError) {
         let ast = parse(code).unwrap();
         let a = analyze(&ast);
-        assert_eq!(a.arities.get("fn").unwrap(), &Err(expected_error));
+        assert_eq!(&a.arities["fn"], &Err(expected_error));
     }
 
     #[test]
