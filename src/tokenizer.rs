@@ -246,7 +246,7 @@ impl ParseState {
             ParseState::LineComment => Ok(()),
             ParseState::String(s) => Err(TokenizeError::UnboundedString(s.start)),
             ParseState::Normal(mut s) => {
-                s.finish(tokens, loc.and_then(|f| f.prev));
+                s.finish(tokens, loc.map(|f| f.current));
                 Ok(())
             }
         }

@@ -348,4 +348,17 @@ mod tests {
         let result = parse(code).unwrap();
         assert_eq!(result, ast);
     }
+
+    #[test]
+    fn single_character() {
+        let code = "4";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block {
+                terms: vec![Term::Number(4.)],
+            },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
 }
