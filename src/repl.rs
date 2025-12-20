@@ -220,7 +220,7 @@ impl Repl {
         self.consume_ast(namespace_id, &ast)
     }
 
-    pub fn list(&mut self, user_namespace: usize) -> ReplResult<()> {
+    pub fn list(&mut self, user_namespace: usize) {
         println!("Available functions:");
         for name in self.program.namespaces[user_namespace].functions.keys() {
             println!("  {name}");
@@ -253,8 +253,6 @@ impl Repl {
         println!("  exit");
         println!("  list");
         println!("  clear");
-
-        Ok(())
     }
 
     fn write_prompt(&self, io: &mut StdoutLock) -> Result<(), std::io::Error> {
@@ -297,7 +295,7 @@ impl Repl {
         loop {
             match self.prompt()?.trim() {
                 "exit" => return Ok(()),
-                "list" => self.list(user_namespace)?,
+                "list" => self.list(user_namespace),
                 "clear" => self.snapshot.stack.clear(),
                 c => self.load_code(user_namespace, c)?,
             }

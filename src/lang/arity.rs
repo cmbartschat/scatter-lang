@@ -123,17 +123,17 @@ impl ResultantType {
         }
     }
 
-    pub fn union(&self, other: &Self) -> Result<Self, ()> {
+    pub fn union(&self, other: &Self) -> Self {
         match (self, other) {
-            (ResultantType::Normal(a), ResultantType::Normal(b)) => Ok(a.union(*b).into()),
+            (ResultantType::Normal(a), ResultantType::Normal(b)) => a.union(*b).into(),
             (ResultantType::Dependent(_), ResultantType::Normal(n))
-            | (ResultantType::Normal(n), ResultantType::Dependent(_)) => Ok(n.to_owned().into()),
-            (ResultantType::Dependent(s), ResultantType::Dependent(other)) => Ok(
+            | (ResultantType::Normal(n), ResultantType::Dependent(_)) => n.to_owned().into(),
+            (ResultantType::Dependent(s), ResultantType::Dependent(other)) => {
                 ResultantType::Dependent(other.iter().fold(s.clone(), |mut a, f| {
                     a.insert(f);
                     a
-                })),
-            ),
+                }))
+            }
         }
     }
 }
@@ -296,7 +296,7 @@ impl Arity {
                 let mut first = mapped_types[x.el].clone();
                 let others = x.iter_rest().map(|f| &mapped_types[f]);
                 for other in others {
-                    first = first.union(other).unwrap();
+                    first = first.union(other);
                 }
                 self.push(first);
             }
@@ -356,12 +356,7 @@ impl Arity {
         }
 
         for (i, t) in left.pushes.iter().enumerate() {
-            match t.union(&right.pushes[i]) {
-                Ok(t) => res.push(t),
-                Err(()) => {
-                    todo!("Handle union error");
-                }
-            }
+            res.push(t.union(&right.pushes[i]));
         }
 
         Ok(res)

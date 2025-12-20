@@ -112,13 +112,13 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
                 }
 
                 if last_arm {
-                    return Ok(combined.unwrap());
+                    return Ok(combined.expect("Unable to combine last branch arm"));
                 }
             }
 
             add_termination(running)?;
 
-            Ok(combined.unwrap())
+            Ok(combined.expect("Unable to combine branch arms"))
         }
         Term::Loop(loop_v) => {
             let pre_arity = if let Some(pre) = &loop_v.pre_condition {

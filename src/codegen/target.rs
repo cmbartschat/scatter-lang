@@ -8,9 +8,9 @@ pub struct CodegenTarget {
 
 impl CodegenTarget {
     pub fn write_line(&mut self, v: &str) {
-        self.output.write_str(&self.indentation).unwrap();
-        self.output.write_str(v).unwrap();
-        self.output.write_char('\n').unwrap();
+        self.output.write_str(&self.indentation).expect("Codegen");
+        self.output.write_str(v).expect("Codegen");
+        self.output.write_char('\n').expect("Codegen");
     }
 
     pub fn increase_indent(&mut self) {

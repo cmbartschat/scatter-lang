@@ -122,7 +122,7 @@ fn to_char(i: &mut Interpreter) -> InterpreterResult {
     if s.len() != 1 {
         return Err("to_ascii only works on strings with length: 1");
     }
-    let byte = s.bytes().next().unwrap();
+    let byte = s.bytes().next().expect("to_char first byte missing");
     i.push(f64::from(byte))
 }
 
