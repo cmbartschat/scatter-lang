@@ -187,14 +187,13 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
 // Codegen Intrinsics End
 
 fn eval_i(i: &mut Interpreter) -> InterpreterResult {
-    match i.take()? {
-        Value::Address(namespace, name) => {
+    if let Value::Address(namespace, name) = i.take()? {
             if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
                 return func(i);
             }
             i.evaluate_namespaced_function(namespace, &name)
-        }
-        _ => Err("Expected function pointer on top of stack"),
+    } else {
+        Err("Expected function pointer on top of stack")
     }
 }
 

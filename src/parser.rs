@@ -233,7 +233,27 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
                 Symbol::LineEnd => break,
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens, &loc.start)?)),
                 Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens, &loc.start)?)),
-                _ => todo!(),
+                Symbol::Colon
+                | Symbol::CurlyClose
+                | Symbol::ParenOpen
+                | Symbol::ParenClose
+                | Symbol::SquareClose
+                | Symbol::Hash => {
+                    return Err(ParseError::Location("Unexpected character", loc.start));
+                }
+                Symbol::At => match tokens.peek() {
+                    Some(ParsedToken {
+                        value: Token::Name(n),
+                        ..
+                    }) => {
+                        target.push(Term::Address(n.clone()));
+                        tokens.next();
+                    }
+                    Some(ParsedToken { loc, .. }) => {
+                        return loc_error("Expected name after @", loc);
+                    }
+                    None => return Err(ParseError::UnexpectedEnd("File should not end with @")),
+                },
             },
         }
     }
@@ -293,16 +313,29 @@ fn parse_import(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Impo
         Token::Symbol(Symbol::CurlyOpen) => {
             let mut names = vec![];
             loop {
-                match tokens.next().map(|f| f.value) {
+                match tokens.next() {
                     None => return unclosed(first_loc.start, "Unclosed name list"),
-                    Some(Token::Symbol(Symbol::CurlyClose)) => break,
-                    Some(Token::Name(n)) => names.push(n),
-                    _ => todo!(),
+                    Some(ParsedToken {
+                        value: Token::Symbol(Symbol::CurlyClose),
+                        ..
+                    }) => break,
+                    Some(ParsedToken {
+                        value: Token::Name(n),
+                        ..
+                    }) => names.push(n),
+                    Some(a) => {
+                        return Err(ParseError::Range(
+                            "Unexpected character in import name block",
+                            a.loc,
+                        ));
+                    }
                 }
             }
             ImportNaming::Named(names)
         }
-        _ => return loc_error("Unexpected expression in import", &first_loc),
+        Token::String(_) | Token::Number(_) | Token::Bool(_) | Token::Symbol(_) => {
+            return loc_error("Unexpected expression in import", &first_loc);
+        }
     };
 
     let path = match tokens.next() {

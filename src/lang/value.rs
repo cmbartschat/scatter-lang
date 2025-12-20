@@ -60,9 +60,10 @@ impl Debug for Value<'_> {
 
 impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::String(s) => Display::fmt(s, f),
-            _ => Debug::fmt(&self, f),
+        if let Self::String(s) = self {
+            Display::fmt(s, f)
+        } else {
+            Debug::fmt(&self, f)
         }
     }
 }

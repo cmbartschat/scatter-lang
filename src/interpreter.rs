@@ -78,16 +78,18 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn take_number(&mut self) -> Result<f64, &'static str> {
-        match self.take()? {
-            Value::Number(v) => Ok(v),
-            _ => Err("Expected number on top of stack"),
+        if let Value::Number(v) = self.take()? {
+            Ok(v)
+        } else {
+            Err("Expected number on top of stack")
         }
     }
 
     pub fn take_string(&mut self) -> Result<Cow<'a, str>, &'static str> {
-        match self.take()? {
-            Value::String(v) => Ok(v),
-            _ => Err("Expected string on top of stack"),
+        if let Value::String(v) = self.take()? {
+            Ok(v)
+        } else {
+            Err("Expected string on top of stack")
         }
     }
 
