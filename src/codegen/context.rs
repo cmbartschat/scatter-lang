@@ -30,6 +30,7 @@ impl<'a> CodegenContext<'a> {
         } else {
             match self.program.resolve_function(self.namespace, v) {
                 Some((namespace, original_name)) => Self::scoped_name(namespace, original_name),
+                #[expect(clippy::unreadable_literal)]
                 None => Self::scoped_name(111111, "unresolved"),
             }
         }

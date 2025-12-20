@@ -153,6 +153,7 @@ fn string_index(i: &mut Interpreter) -> InterpreterResult {
 
 fn equals(i: &mut Interpreter) -> InterpreterResult {
     match i.take2()? {
+        #[expect(clippy::float_cmp)]
         (Value::Number(a), Value::Number(b)) => i.push(a == b),
         (Value::String(a), Value::String(b)) => i.push(a == b),
         (Value::Bool(a), Value::Bool(b)) => i.push(a == b),
@@ -188,10 +189,10 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
 
 fn eval_i(i: &mut Interpreter) -> InterpreterResult {
     if let Value::Address(namespace, name) = i.take()? {
-            if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
-                return func(i);
-            }
-            i.evaluate_namespaced_function(namespace, &name)
+        if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
+            return func(i);
+        }
+        i.evaluate_namespaced_function(namespace, &name)
     } else {
         Err("Expected function pointer on top of stack")
     }

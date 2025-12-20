@@ -25,7 +25,7 @@ chmod +x gen/gen.rs
 ./gen/gen.rs > /dev/null 2>/dev/null
 
 echo "...Linting"
-cargo clippy -q
-cargo fmt --check -q
+cargo clippy -q --all-targets
+cargo fmt --check
 
 echo "Success!"

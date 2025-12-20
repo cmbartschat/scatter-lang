@@ -92,6 +92,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    #[expect(clippy::unnecessary_wraps)]
     pub fn push<T>(&mut self, v: T) -> InterpreterResult
     where
         Value<'a>: From<T>,
@@ -100,6 +101,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    #[expect(clippy::unnecessary_wraps)]
     pub fn push2<T1, T2>(&mut self, a: T1, b: T2) -> InterpreterResult
     where
         Value<'a>: From<T1>,
@@ -110,6 +112,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    #[expect(clippy::unnecessary_wraps)]
     pub fn push3<T1, T2, T3>(&mut self, a: T1, b: T2, c: T3) -> InterpreterResult
     where
         Value<'a>: From<T1>,
