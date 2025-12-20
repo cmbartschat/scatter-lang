@@ -1,5 +1,33 @@
+#![deny(clippy::all, clippy::pedantic)]
+#![warn(
+    future_incompatible,
+    nonstandard_style,
+    bare_trait_objects,
+    ellipsis_inclusive_range_patterns,
+    explicit_outlives_requirements,
+    rust_2021_prelude_collisions,
+    semicolon_in_expressions_from_macros,
+    trivial_numeric_casts,
+    unsafe_code,
+    unsafe_op_in_unsafe_fn,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_lifetimes
+)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::float_cmp, // manual disable
+    clippy::unnecessary_wraps, // manually disable
+    clippy::unreadable_literal
+)]
+
 mod analyze;
 mod codegen;
+mod convert;
 mod interpreter;
 mod intrinsics;
 mod lang;
@@ -7,6 +35,7 @@ mod parser;
 mod program;
 mod repl;
 mod test_analyze;
+mod test_convert;
 mod test_e2e;
 mod test_interpreter;
 mod test_parser;

@@ -1,4 +1,7 @@
-use crate::lang::{ParsedToken, SourceLocation, Symbol, Token};
+use crate::{
+    convert::hex_char_to_u8,
+    lang::{ParsedToken, SourceLocation, Symbol, Token},
+};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum StringDelimiter {
@@ -10,23 +13,6 @@ enum StringDelimiter {
 enum EscapeState {
     EscapeNext,
     Hex(Option<char>),
-}
-
-fn parse_hex(c: char) -> Option<u8> {
-    let v = c as u32;
-    if v >= '0' as u32 && v <= '9' as u32 {
-        return Some((v - '0' as u32) as u8);
-    }
-
-    if v >= 'a' as u32 && v <= 'f' as u32 {
-        return Some((v - 'a' as u32) as u8 + 10);
-    }
-
-    if v >= 'A' as u32 && v <= 'F' as u32 {
-        return Some((v - 'A' as u32) as u8 + 10);
-    }
-
-    None
 }
 
 impl EscapeState {
@@ -46,7 +32,7 @@ impl EscapeState {
             Self::Hex(x) => match x {
                 Some(prev_char) => {
                     let (Some(high_value), Some(low_value)) =
-                        (parse_hex(prev_char), parse_hex(char))
+                        (hex_char_to_u8(prev_char), hex_char_to_u8(char))
                     else {
                         return Err(());
                     };

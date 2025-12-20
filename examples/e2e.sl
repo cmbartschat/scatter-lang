@@ -100,14 +100,11 @@ end_suite
 
 "substring" start_suite
 "hello world" 0 5 substring "hello" should_equal
-"hello world" -5 5 substring "hello" should_equal
 "hello world" 6 11 substring "world" should_equal
 "hello world" 6 15 substring "world" should_equal
 "hello" 6 11 substring "" should_equal
-"" -4 5 substring "" should_equal
 "" 4 5 substring "" should_equal
 "hello world" 4 3 substring "" should_equal
-"" -4 5 substring "" should_equal
 end_suite
 
 "to_char" start_suite

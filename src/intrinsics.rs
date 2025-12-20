@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use crate::{
     analyze::AnalysisError,
+    convert::{f64_to_char, f64_to_usize, usize_to_f64},
     interpreter::{Interpreter, InterpreterResult},
     lang::{Arity, Type, Value},
 };
@@ -100,10 +101,15 @@ fn increment(i: &mut Interpreter) -> InterpreterResult {
 }
 
 fn substring(i: &mut Interpreter) -> InterpreterResult {
-    let (start, end) = i.take2_numbers()?;
+    let Some(end) = f64_to_usize(i.take_number()?) else {
+        return Err("Invalid substring end index");
+    };
+    let Some(start) = f64_to_usize(i.take_number()?) else {
+        return Err("Invalid substring start index");
+    };
     let original = i.take_string()?;
-    let start = (start as usize).min(original.len()).max(0);
-    let end = (end as usize).min(original.len()).max(start);
+    let start = start.min(original.len());
+    let end = end.min(original.len()).max(start);
     i.push(original[start..end].to_string())
 }
 
@@ -113,8 +119,10 @@ fn join(i: &mut Interpreter) -> InterpreterResult {
 }
 
 fn length(i: &mut Interpreter) -> InterpreterResult {
-    let s = i.take_string()?;
-    i.push(s.len() as f64)
+    let Some(len) = usize_to_f64(i.take_string()?.len()) else {
+        return Err("String length is out of range");
+    };
+    i.push(len)
 }
 
 fn to_char(i: &mut Interpreter) -> InterpreterResult {
@@ -128,18 +136,8 @@ fn to_char(i: &mut Interpreter) -> InterpreterResult {
 
 fn from_char(i: &mut Interpreter) -> InterpreterResult {
     let s = i.take_number()?;
-    if s.fract() != 0f64 {
-        return Err("from_char only works with integers");
-    }
-    if !s.is_finite() {
-        return Err("from_char only works with normal numbers");
-    }
-    let v = s as u32;
-    if !(0..=u32::from(u8::MAX)).contains(&v) {
+    let Some(char) = f64_to_char(s) else {
         return Err("from_char only works with numbers 0-255");
-    }
-    let Some(char) = char::from_u32(v) else {
-        return Err("Unexpected ");
     };
     i.push(format!("{char}"))
 }
@@ -147,7 +145,13 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
 fn string_index(i: &mut Interpreter) -> InterpreterResult {
     let needle = i.take_string()?;
     let haystack = i.take_string()?;
-    let location = haystack.find(&*needle).map_or(-1f64, |e| e as f64);
+    let location = match haystack.find(&*needle) {
+        Some(e) => match usize_to_f64(e) {
+            Some(e) => e,
+            None => return Err("String index cannot be converted to number"),
+        },
+        None => -1f64,
+    };
     i.push(location)
 }
 
