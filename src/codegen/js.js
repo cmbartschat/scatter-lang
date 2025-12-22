@@ -3,13 +3,13 @@ const STATE = {
   values: [],
 }
 
-const STACK_UNDERFLOW = 101
-const TYPE_MISMATCH = 104
-const ASSERT_FAILED = 105
+const STACK_UNDERFLOW = () => new Error('STACK_UNDERFLOW')
+const TYPE_MISMATCH = () => new Error('TYPE_MISMATCH')
+const ASSERT_FAILED = () => new Error('ASSERT_FAILED')
 
 function assertStackHas(x) {
   if (STATE.values.length < x) {
-    throw new Error(STACK_UNDERFLOW)
+    throw STACK_UNDERFLOW()
   }
 }
 
@@ -21,20 +21,64 @@ function storeStack(offset, v) {
   STATE.values[STATE.values.length + offset] = v
 }
 
+function readStackPrimitive(offset) {
+  const v = STATE.values[STATE.values.length + offset]
+
+  if (typeof v === 'string') {
+    return v
+  }
+  if (Array.isArray(v)) {
+    if (v[0] === 'chars') {
+      if (typeof v[2] === 'undefined') {
+        v[2] = v[1].join('')
+      }
+      return v[2]
+    }
+  }
+  return v
+}
+
 function readStackNumber(offset) {
   const v = readStack(offset)
   if (typeof v !== 'number') {
-    throw TYPE_MISMATCH
+    throw TYPE_MISMATCH()
   }
   return v
 }
 
 function readStackString(offset) {
   const v = readStack(offset)
-  if (typeof v !== 'string') {
-    throw TYPE_MISMATCH
+
+  if (typeof v === 'string') {
+    return v
   }
-  return v
+
+  if (Array.isArray(v)) {
+    if (v[0] === 'chars') {
+      if (typeof v[2] === 'undefined') {
+        v[2] = v[1].join('')
+      }
+      return v[2]
+    }
+  }
+
+  throw TYPE_MISMATCH()
+}
+
+function readStackChars(offset) {
+  const v = readStack(offset)
+  if (typeof v !== 'string') {
+    if (Array.isArray(v)) {
+      if (v[0] !== 'chars') {
+        throw TYPE_MISMATCH()
+      }
+      return v[1]
+    }
+    throw TYPE_MISMATCH()
+  }
+  const chars = Array.from(v)
+  storeStack(offset, ['chars', chars, v])
+  return chars
 }
 
 function push(v) {
@@ -54,7 +98,7 @@ function drop() {
 
 function join() {
   assertStackHas(2)
-  storeStack(-2, `${readStack(-2)}${readStack(-1)}`)
+  storeStack(-2, `${readStackPrimitive(-2)}${readStackPrimitive(-1)}`)
   drop()
 }
 
@@ -133,17 +177,17 @@ function decrement() {
 
 function substring() {
   assertStackHas(3)
-  const str = readStackString(-3)
+  const chars = readStackChars(-3)
   const start = readStackNumber(-2)
   const end = readStackNumber(-1)
-  storeStack(-3, str.substring(start, Math.max(start, end)))
+  storeStack(-3, ['chars', chars.slice(start, Math.max(start, end)), undefined])
   drop()
   drop()
 }
 
 function length() {
   assertStackHas(1)
-  storeStack(-1, readStackString(-1).length)
+  storeStack(-1, readStackChars(-1).length)
 }
 
 function over() {
@@ -153,10 +197,10 @@ function over() {
 
 function equals() {
   assertStackHas(2)
-  const left = readStack(-2)
-  const right = readStack(-1)
+  const left = readStackPrimitive(-2)
+  const right = readStackPrimitive(-1)
   if (typeof left !== typeof right) {
-    throw TYPE_MISMATCH
+    throw TYPE_MISMATCH()
   }
   storeStack(-2, left === right)
   drop()
@@ -170,7 +214,7 @@ function dup() {
 function print() {
   assertStackHas(1)
   // eslint-disable-next-line no-console
-  console.log(readStack(-1))
+  console.log(readStackPrimitive(-1))
   drop()
 }
 
@@ -181,7 +225,7 @@ function assert() {
   if (!value) {
     // eslint-disable-next-line no-console
     console.error('Assertion failed: ', message)
-    throw ASSERT_FAILED
+    throw ASSERT_FAILED()
   }
   drop()
   drop()
@@ -207,23 +251,29 @@ function printStack() {
 
 function to_char() {
   assertStackHas(1)
-  const top = readStackString(-1)
-  if (top.length !== 1) {
-    throw TYPE_MISMATCH
+  const top = readStackChars(-1)
+  if (readStackChars.length !== 1) {
+    throw TYPE_MISMATCH()
   }
-  storeStack(-1, top.charCodeAt(0))
+  storeStack(-1, top[0].codePointAt(0))
 }
 
 function from_char() {
   assertStackHas(1)
-  storeStack(-1, String.fromCharCode(readStackNumber(-1)))
+  storeStack(-1, String.fromCodePoint(readStackNumber(-1)))
 }
 
 function string_index() {
   assertStackHas(2)
   const needle = readStackString(-1)
   const haystack = readStackString(-2)
-  storeStack(-2, haystack.indexOf(needle))
+  const u16_index = haystack.indexOf(needle)
+  if (u16_index === -1) {
+    storeStack(-2, u16_index)
+  } else {
+    const char_index = Array.from(haystack.substring(0, u16_index)).length
+    storeStack(-2, char_index)
+  }
   drop()
 }
 
