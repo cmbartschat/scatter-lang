@@ -6,7 +6,6 @@ use crate::{
 
 static DEFS: &str = include_str!("./rs-defs.rs");
 static INTRINSICS: &str = include_str!("../intrinsics.rs");
-static CONVERSION: &str = include_str!("../convert.rs");
 static INTERPRETER: &str = include_str!("../interpreter.rs");
 
 fn codegen_loop_condition(ctx: &mut CodegenContext, block: Option<&Block>) {
@@ -121,8 +120,25 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
         &INTRINSICS[definition_start..definition_end]
     };
 
+    let libs = &[
+        include_str!("../convert.rs"),
+        include_str!("../lang/string/char_string.rs"),
+        include_str!("../lang/string/api.rs"),
+    ];
+
+    let libs = libs
+        .iter()
+        .map(|f| {
+            let Some(i) = f.find("// Codegen Imports End") else {
+                return *f;
+            };
+            &f[i..]
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
     println!(
-        "{definitions}\n{CONVERSION}\n{intrinsics}{}
+        "{definitions}\n{libs}\n{intrinsics}{}
 fn main() -> InterpreterResult {{
   let mut c = Interpreter::new();
   main_body(&mut c)?;

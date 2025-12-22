@@ -29,11 +29,10 @@ pub fn usize_to_f64(v: usize) -> Option<f64> {
 
 pub fn f64_to_char(v: f64) -> Option<char> {
     let v = f64_to_usize(v)?;
-    if v > u8::MAX as usize {
+    let Ok(v) = u32::try_from(v) else {
         return None;
-    }
-    #[allow(clippy::cast_possible_truncation)]
-    char::from_u32(v as u32)
+    };
+    char::from_u32(v)
 }
 
 pub fn hex_char_to_u8(c: char) -> Option<u8> {

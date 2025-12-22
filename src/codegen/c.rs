@@ -33,11 +33,14 @@ fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
 
 fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
     match term {
-        Term::String(e) => ctx.target.write_line(&format!(
-            "checked(push_string_literal({:?}, {}));",
-            e,
-            e.len()
-        )),
+        Term::String(e) => {
+            assert!(e.is_ascii(), "Non-ascii strings are not supported in C");
+            ctx.target.write_line(&format!(
+                "checked(push_string_literal({:?}, {}));",
+                e,
+                e.len()
+            ));
+        }
         Term::Number(e) => ctx
             .target
             .write_line(&format!("checked(push_number_literal({}L));", e)),

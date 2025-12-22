@@ -4,7 +4,10 @@ use crate::{
     analyze::AnalysisError,
     convert::{f64_to_char, f64_to_usize, usize_to_f64},
     interpreter::{Interpreter, InterpreterResult},
-    lang::{Arity, Type, Value},
+    lang::{
+        Arity, Type, Value,
+        string::{CharString, StringApi as _},
+    },
 };
 
 type Intrinsic = fn(&mut Interpreter) -> InterpreterResult;
@@ -110,7 +113,7 @@ fn substring(i: &mut Interpreter) -> InterpreterResult {
     let original = i.take_string()?;
     let start = start.min(original.len());
     let end = end.min(original.len()).max(start);
-    i.push(original[start..end].to_string())
+    i.push(Value::String(original.substring(start..end)))
 }
 
 fn join(i: &mut Interpreter) -> InterpreterResult {
@@ -130,22 +133,22 @@ fn to_char(i: &mut Interpreter) -> InterpreterResult {
     if s.len() != 1 {
         return Err("to_ascii only works on strings with length: 1");
     }
-    let byte = s.bytes().next().expect("to_char first byte missing");
-    i.push(f64::from(byte))
+    let code = s[0] as u32;
+    i.push(f64::from(code))
 }
 
 fn from_char(i: &mut Interpreter) -> InterpreterResult {
     let s = i.take_number()?;
     let Some(char) = f64_to_char(s) else {
-        return Err("from_char only works with numbers 0-255");
+        return Err("from_char only works with valid unicode codepoints");
     };
-    i.push(format!("{char}"))
+    i.push(Value::String(CharString::from(char)))
 }
 
 fn string_index(i: &mut Interpreter) -> InterpreterResult {
     let needle = i.take_string()?;
     let haystack = i.take_string()?;
-    let location = match haystack.find(&*needle) {
+    let location = match haystack.find(&needle) {
         Some(e) => match usize_to_f64(e) {
             Some(e) => e,
             None => return Err("String index cannot be converted to number"),

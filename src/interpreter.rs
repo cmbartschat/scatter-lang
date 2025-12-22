@@ -1,11 +1,8 @@
-use std::{
-    borrow::Cow,
-    io::{BufRead as _, StdinLock},
-};
+use std::io::{BufRead as _, StdinLock};
 
 use crate::{
     intrinsics::{IntrinsicData, get_intrinsic},
-    lang::{Block, Branch, Loop, OwnedValue, Term, Value},
+    lang::{Block, Branch, Loop, OwnedValue, Term, Value, string::CharString},
     program::{NamespaceId, Program},
 };
 
@@ -84,7 +81,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn take_string(&mut self) -> Result<Cow<'a, str>, &'static str> {
+    pub fn take_string(&mut self) -> Result<CharString<'a>, &'static str> {
         if let Value::String(v) = self.take()? {
             Ok(v)
         } else {
@@ -249,7 +246,7 @@ impl<'a> Interpreter<'a> {
 
     fn evaluate_term(&mut self, term: &'a Term) -> InterpreterResult {
         match term {
-            Term::String(l) => self.push(Value::String(l.into())),
+            Term::String(l) => self.push(Value::String(l.as_str().into())),
             Term::Number(l) => self.push(Value::Number(*l)),
             Term::Bool(l) => self.push(Value::Bool(*l)),
             Term::Name(name) => self.evaluate_name(name),

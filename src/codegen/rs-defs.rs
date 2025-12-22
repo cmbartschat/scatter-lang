@@ -14,8 +14,11 @@ rustflags = ["-Aunused"]
 
 use std::borrow::Cow;
 use std::{
+    fmt::Write as _,
     fmt::{Debug, Display},
     io::BufRead,
+    marker::PhantomData,
+    ops::{Index, Range},
 };
 
 type ExecutionError = &'static str;
@@ -26,7 +29,7 @@ type Operation = fn(&mut Interpreter) -> InterpreterResult;
 
 #[derive(Clone)]
 enum Value {
-    String(Cow<'static, str>),
+    String(CharString<'static>),
     Number(f64),
     Bool(bool),
     Address(&'static Operation),

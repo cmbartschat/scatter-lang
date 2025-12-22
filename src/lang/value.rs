@@ -1,11 +1,10 @@
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
+
+use crate::lang::string::{CharString, StringApi as _};
 
 #[derive(Clone, PartialEq)]
 pub enum Value<'a> {
-    String(Cow<'a, str>),
+    String(CharString<'a>),
     Number(f64),
     Bool(bool),
     Address(usize, String),

@@ -47,7 +47,7 @@ mod tests {
         assert_eq!(f64_to_char(1e53), None);
         assert_eq!(f64_to_char(f64::NAN), None);
         assert_eq!(f64_to_char(f64::NEG_INFINITY), None);
-        assert_eq!(f64_to_char(256.), None);
+        assert_eq!(f64_to_char(1114112.), None);
     }
 
     #[test]
@@ -56,6 +56,8 @@ mod tests {
         assert_eq!(f64_to_char(65.).unwrap(), 'A');
         assert_eq!(f64_to_char(97.).unwrap(), 'a');
         assert_eq!(f64_to_char(255.).unwrap(), 0xff as char);
+        assert_eq!(f64_to_char(1114111.).unwrap(), '\u{10FFFF}');
+        assert_eq!(f64_to_char(9989.).unwrap(), '✅');
     }
 
     #[test]

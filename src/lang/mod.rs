@@ -2,6 +2,7 @@ mod arity;
 mod ast;
 mod owned_value;
 mod source_location;
+pub mod string;
 mod symbol;
 mod token;
 mod r#type;
