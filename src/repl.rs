@@ -68,6 +68,9 @@ fn parse_error_to_cow(path: Option<&Path>, value: &ParseError) -> Cow<'static, s
         ParseError::Tokenization(TokenizeError::UnboundedString(loc)) => {
             Cow::<str>::from(format!("{file}:{:?}: Unclosed string literal", loc))
         }
+        ParseError::Tokenization(TokenizeError::UnboundedComment(loc)) => {
+            Cow::<str>::from(format!("{file}:{:?}: Unclosed range comment", loc))
+        }
         ParseError::Tokenization(TokenizeError::InvalidStringEscape(loc, c)) => {
             Cow::<str>::from(format!(
                 "{file}:{:?}: Invalid character in escape sequence: {c:?}",
@@ -161,7 +164,9 @@ impl Repl {
             Err(e) => match e {
                 ParseError::UnexpectedEnd(_)
                 | ParseError::UnclosedExpression(..)
-                | ParseError::Tokenization(TokenizeError::UnboundedString(_)) => {
+                | ParseError::Tokenization(
+                    TokenizeError::UnboundedString(_) | TokenizeError::UnboundedComment(_),
+                ) => {
                     std::mem::swap(&mut full_source, &mut self.pending_code);
                     return Ok(());
                 }

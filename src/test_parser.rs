@@ -251,13 +251,27 @@ mod tests {
     }
 
     #[test]
-    fn comments() {
+    fn comments_1() {
         let code = r"
         1
         // comment
 2 // comment 2
 3
         ";
+
+        let ast = Module {
+            body: Block {
+                terms: vec![1.into(), 2.into(), 3.into()],
+            },
+            ..Default::default()
+        };
+        let result = parse(code).unwrap();
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn comments_2() {
+        let code = "1//1\n2//2\n3//3";
 
         let ast = Module {
             body: Block {
@@ -356,6 +370,122 @@ mod tests {
         let ast = Module {
             body: Block {
                 terms: vec![Term::Number(4.)],
+            },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_1() {
+        let code = r"
+/* 1 */
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_2() {
+        let code = r"
+/* 1 / */
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_3() {
+        let code = r"
+/* 1 **/
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_4() {
+        let code = r"
+/* 1 * * */
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_5() {
+        let code = r"
+/* 1 * * 
+
+*/
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_6() {
+        let code = r"
+/*/ 1 * * 
+
+*/
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block { terms: vec![] },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_7() {
+        let code = r"
+/*/ 1 * * 
+
+*/4
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block {
+                terms: vec![4f64.into()],
+            },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn multiline_8() {
+        let code = r"
+5/*/ 1 * * 
+
+*/
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block {
+                terms: vec![5f64.into()],
             },
             ..Default::default()
         };

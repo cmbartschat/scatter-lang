@@ -364,4 +364,21 @@ end_suite
 @double_increment 3 swap eval 5 should_equal
 end_suite
 
+"multiline" start_suite
+/* 0 "example" assert */
+0
+/* 5555 + */ 1 +
+/**/ 2 +
+/* 5555 + / */ 
+/* 5555 + /* */ 
+/* 5555 + /* **/ 
+//* something
+4 + 
+7 should_equal
+multiline_comment_single: /* something 
+*/ 3
+multiline_comment_single multiline_comment_single * 9 should_equal
+"/*hello*/" length 9 should_equal
+end_suite
+
 "all passed." print

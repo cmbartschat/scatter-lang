@@ -98,6 +98,59 @@ impl StringParseState {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+enum RangeCommentParseStage {
+    Start,
+    Inner,
+    NextSlashEnds,
+}
+
+impl RangeCommentParseStage {
+    pub fn next(self, char: char) -> Option<Self> {
+        Some(match self {
+            Self::Start => {
+                assert!(
+                    char == '*',
+                    "First character of range comment should always be *"
+                );
+                Self::Inner
+            }
+            Self::Inner => {
+                if char == '*' {
+                    Self::NextSlashEnds
+                } else {
+                    Self::Inner
+                }
+            }
+            Self::NextSlashEnds => {
+                if char == '*' {
+                    Self::NextSlashEnds
+                } else if char == '/' {
+                    return None;
+                } else {
+                    Self::Inner
+                }
+            }
+        })
+    }
+}
+
+#[derive(Debug)]
+struct RangeCommentParseState {
+    start: SourceLocation,
+    stage: RangeCommentParseStage,
+}
+
+impl RangeCommentParseState {
+    pub fn next(mut self, char: char, loc: &SourcePositions) -> Option<ParseState> {
+        let Some(next_stage) = self.stage.next(char) else {
+            return loc.next.map(ParseState::normal);
+        };
+        self.stage = next_stage;
+        Some(ParseState::RangeComment(self))
+    }
+}
+
 #[derive(Debug)]
 struct NormalParseState {
     start: SourceLocation,
@@ -196,7 +249,12 @@ impl NormalParseState {
                 return ParseState::string(loc.current, StringDelimiter::Single);
             }
             '/' if next_char == Some('/') => {
+                self.advance(tokens, loc);
                 return ParseState::comment();
+            }
+            '/' if next_char == Some('*') => {
+                self.advance(tokens, loc);
+                return ParseState::range_comment(loc.current);
             }
             ' ' => {
                 self.advance(tokens, loc);
@@ -215,6 +273,7 @@ enum ParseState {
     String(StringParseState),
     Normal(NormalParseState),
     LineComment,
+    RangeComment(RangeCommentParseState),
 }
 
 impl ParseState {
@@ -238,6 +297,13 @@ impl ParseState {
         Self::LineComment
     }
 
+    pub fn range_comment(loc: SourceLocation) -> Self {
+        Self::RangeComment(RangeCommentParseState {
+            start: loc,
+            stage: RangeCommentParseStage::Start,
+        })
+    }
+
     pub fn finish(
         self,
         tokens: &mut Vec<ParsedToken>,
@@ -250,6 +316,7 @@ impl ParseState {
                 s.finish(tokens, loc.map(|f| f.current));
                 Ok(())
             }
+            ParseState::RangeComment(s) => Err(TokenizeError::UnboundedComment(s.start)),
         }
     }
 
@@ -263,6 +330,7 @@ impl ParseState {
         match self {
             ParseState::String(s) => s.next(tokens, char, next_char, loc),
             ParseState::Normal(s) => Ok(Some(s.next(tokens, char, next_char, loc))),
+            ParseState::RangeComment(s) => Ok(s.next(char, loc)),
             ParseState::LineComment => match (char, &loc.next) {
                 ('\n', Some(next)) => Ok(Some(ParseState::normal(next.to_owned()))),
                 ('\n', None) => Ok(None),
@@ -276,6 +344,7 @@ impl ParseState {
 pub enum TokenizeError {
     UnboundedString(SourceLocation),
     InvalidStringEscape(SourceLocation, char),
+    UnboundedComment(SourceLocation),
 }
 
 pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
