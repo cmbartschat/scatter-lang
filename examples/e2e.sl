@@ -75,6 +75,8 @@ false true == false should_equal
 " == true should_equal
 '\0' '\x00' == true should_equal
 'A' '\x41' == true should_equal
+"" "\
+" == true should_equal
 end_suite
 
 "<" start_suite

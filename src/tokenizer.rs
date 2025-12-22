@@ -24,6 +24,7 @@ impl EscapeState {
                 'r' => '\r',
                 't' => '\t',
                 '0' => '\0',
+                '\n' => return Ok((None, None)),
                 'x' => return Ok((Some(Self::Hex(None)), None)),
                 _ => {
                     return Err(());
