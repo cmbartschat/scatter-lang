@@ -15,9 +15,12 @@ pub type InterpreterValueResult<T> = Result<T, InterpreterError>;
 
 pub type InterpreterResult = InterpreterValueResult<()>;
 
+pub type BacktraceItem<'a> = (NamespaceId, &'a Term);
+
 pub struct Interpreter<'a> {
     pub stack: Vec<Value<'a>>,
     pub namespace_stack: Vec<NamespaceId>,
+    pub backtrace: Vec<BacktraceItem<'a>>,
     pub program: &'a Program,
     input: Option<StdinLock<'static>>,
 }
@@ -38,12 +41,25 @@ impl<'a> Interpreter<'a> {
             stack: snapshot.stack.into_iter().map(Into::into).collect(),
             namespace_stack: vec![],
             program,
+            backtrace: Vec::with_capacity(64),
             input: Some(std::io::stdin().lock()),
         }
     }
 
-    pub fn execute(mut self, block: &'a Block) -> InterpreterValueResult<InterpreterSnapshot> {
-        self.evaluate_block(block)?;
+    pub fn execute(
+        mut self,
+        block: &'a Block,
+    ) -> Result<InterpreterSnapshot, (InterpreterError, Vec<BacktraceItem<'a>>)> {
+        let res = self.evaluate_block(block);
+        res.map_err(|e| {
+            let mut backtrace = Vec::new();
+            std::mem::swap(&mut backtrace, &mut self.backtrace);
+            (e, backtrace)
+        })?;
+        assert!(
+            self.backtrace.is_empty(),
+            "Backtrace should be empty after successful execution"
+        );
         Ok(InterpreterSnapshot {
             stack: self.stack.into_iter().map(Into::into).collect(),
         })
@@ -158,25 +174,6 @@ impl<'a> Interpreter<'a> {
             .unwrap_or_default()
     }
 
-    pub fn evaluate_namespaced_function(
-        &mut self,
-        namespace: NamespaceId,
-        name: &str,
-    ) -> InterpreterResult {
-        let function = &self.program.namespaces[namespace].functions[name];
-        let current_namespace = self.get_current_namespace();
-
-        if namespace == current_namespace {
-            self.evaluate_block(&function.body)?;
-        } else {
-            self.namespace_stack.push(namespace);
-            self.evaluate_block(&function.body)?;
-            self.namespace_stack.pop();
-        }
-
-        Ok(())
-    }
-
     fn evaluate_block(&mut self, block: &'a Block) -> InterpreterResult {
         for term in &block.terms {
             self.evaluate_term(term)?;
@@ -195,12 +192,10 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn evaluate_name(&mut self, name: &str) -> InterpreterResult {
+    pub fn evaluate_name(&mut self, current_namespace: usize, name: &str) -> InterpreterResult {
         if let Some(IntrinsicData { func, .. }) = get_intrinsic(name) {
             return func(self);
         }
-
-        let current_namespace = self.get_current_namespace();
 
         let Some((resolved_namespace, resolved_name)) =
             self.program.resolve_function(current_namespace, name)
@@ -209,14 +204,9 @@ impl<'a> Interpreter<'a> {
         };
 
         let function = &self.program.namespaces[resolved_namespace].functions[resolved_name];
-
-        if resolved_namespace == current_namespace {
-            self.evaluate_block(&function.body)?;
-        } else {
-            self.namespace_stack.push(resolved_namespace);
-            self.evaluate_block(&function.body)?;
-            self.namespace_stack.pop();
-        }
+        self.namespace_stack.push(resolved_namespace);
+        self.evaluate_block(&function.body)?;
+        self.namespace_stack.pop();
 
         Ok(())
     }
@@ -245,7 +235,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn evaluate_address(&mut self, name: &str) -> InterpreterResult {
+    fn store_address(&mut self, name: &'a str) -> InterpreterResult {
         let current_namespace = self.get_current_namespace();
         self.push(Value::Address(current_namespace, name.into()))
     }
@@ -255,10 +245,16 @@ impl<'a> Interpreter<'a> {
             Term::String(l) => self.push(Value::String(l.as_str().into())),
             Term::Number(l) => self.push(Value::Number(*l)),
             Term::Bool(l) => self.push(Value::Bool(*l)),
-            Term::Name(name, _) => self.evaluate_name(name),
+            Term::Name(name, _) => {
+                let current_namespace = self.get_current_namespace();
+                self.backtrace.push((current_namespace, term));
+                self.evaluate_name(current_namespace, name)?;
+                self.backtrace.pop();
+                Ok(())
+            }
             Term::Branch(b) => self.evaluate_branch(b),
             Term::Loop(l) => self.evaluate_loop(l),
-            Term::Address(s) => self.evaluate_address(s),
+            Term::Address(s) => self.store_address(s),
         }
     }
 }

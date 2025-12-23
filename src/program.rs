@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::lang::{Function, ImportNaming, Module};
+use crate::{
+    lang::{Function, ImportNaming, Module},
+    path::CanonicalPathBuf,
+};
 
 #[derive(Debug)]
 pub struct NamespaceImport {
@@ -10,6 +13,7 @@ pub struct NamespaceImport {
 
 #[derive(Default, Debug)]
 pub struct Namespace {
+    pub path: Option<CanonicalPathBuf>,
     pub imports: Vec<NamespaceImport>,
     pub functions: HashMap<String, Function>,
 }
@@ -44,6 +48,14 @@ impl Program {
     pub fn allocate_namespace(&mut self) -> NamespaceId {
         self.namespaces.push(Namespace::default());
         self.namespaces.len() - 1
+    }
+
+    pub fn get_namespace_mut(&mut self, namespace: NamespaceId) -> &mut Namespace {
+        &mut self.namespaces[namespace]
+    }
+
+    pub fn get_namespace(&self, namespace: NamespaceId) -> &Namespace {
+        &self.namespaces[namespace]
     }
 
     pub fn add_functions(&mut self, namespace: NamespaceId, functions: &[Function]) {

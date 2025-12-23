@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
+    fmt::Write as _,
     io::{StdoutLock, Write as _},
     path::{Path, PathBuf},
 };
@@ -9,10 +10,11 @@ use crate::{
     ReplArgs,
     analyze::{AnalysisError, BlockAnalysisResult, analyze_block_in_namespace, analyze_program},
     codegen::{c::c_codegen_module, js::js_codegen_module, rs::rs_codegen_module},
-    interpreter::{Interpreter, InterpreterSnapshot},
+    interpreter::{BacktraceItem, Interpreter, InterpreterError, InterpreterSnapshot},
     intrinsics::{IntrinsicData, get_intrinsics},
-    lang::{ImportLocation, ImportNaming, Module},
+    lang::{ImportLocation, ImportNaming, Module, Term},
     parser::{ParseError, parse},
+    path::CanonicalPathBuf,
     program::{NamespaceId, NamespaceImport, Program},
     tokenizer::TokenizeError,
 };
@@ -39,7 +41,7 @@ pub struct Repl {
     program: Program,
     snapshot: InterpreterSnapshot,
     base_path: PathBuf,
-    loaded_paths: HashMap<PathBuf, NamespaceId>,
+    loaded_paths: HashMap<CanonicalPathBuf, NamespaceId>,
     pending_code: String,
 }
 
@@ -51,6 +53,8 @@ fn stringify_absolute_path(path: Option<&Path>) -> String {
     let Some(path) = path else {
         return "input".into();
     };
+
+    assert!(path.is_absolute(), "Path is not absolute");
 
     let Ok(cwd) = std::env::current_dir() else {
         return path.display().to_string();
@@ -112,8 +116,9 @@ impl Repl {
                     if !path.starts_with("./") && !path.starts_with("../") {
                         return Err(format!("Invalid import: {}", path).into());
                     }
-                    let resolved = context.join(path);
-                    let dependency_id = self.prepare_dependency(&resolved)?;
+                    let file_path = CanonicalPathBuf::try_from_path(&context.join(path))
+                        .map_err(|e| Cow::Owned(e.to_string()))?;
+                    let dependency_id = self.prepare_dependency(&file_path)?;
                     imports.push(NamespaceImport {
                         id: dependency_id,
                         naming: import.naming.clone(),
@@ -127,28 +132,25 @@ impl Repl {
         Ok(())
     }
 
-    pub fn prepare_dependency(&mut self, path: &Path) -> ReplResult<NamespaceId> {
+    pub fn prepare_dependency(&mut self, path: &CanonicalPathBuf) -> ReplResult<NamespaceId> {
         match self.loaded_paths.get(path) {
             Some(e) => Ok(*e),
             None => self.prepare_file(path).map(|e| e.0),
         }
     }
 
-    pub fn prepare_file(&mut self, path: &Path) -> ReplResult<(NamespaceId, Module)> {
-        if !path.is_absolute() {
-            return Err("File paths should be absolute".into());
-        }
-
+    pub fn prepare_file(&mut self, path: &CanonicalPathBuf) -> ReplResult<(NamespaceId, Module)> {
         let id = self.program.allocate_namespace();
-        self.loaded_paths.insert(path.to_owned(), id);
+        self.loaded_paths.insert(path.clone(), id);
 
         let source = std::fs::read_to_string(path).map_err(|_| "Failed to read file")?;
-        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(path), &e))?;
-        let Some(context) = path.parent() else {
+        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(path.as_path()), &e))?;
+        let Some(context) = path.as_path().parent() else {
             return Err("Unable to resolve file path context".into());
         };
 
         self.prepare_code(&ast, id, context)?;
+        self.program.get_namespace_mut(id).path = Some(path.to_owned());
         Ok((id, ast))
     }
 
@@ -212,13 +214,17 @@ impl Repl {
             std::mem::swap(&mut snap, &mut self.snapshot);
             let mut interpreter = Interpreter::from_snapshot(snap, &self.program);
             interpreter.enable_stdin();
-            self.snapshot = interpreter.execute(&ast.body)?;
+            self.snapshot = interpreter
+                .execute(&ast.body)
+                .map_err(|e| self.try_stringify_backtrace(e.0, &e.1))?;
             Ok(())
         }
     }
 
     pub fn load_file(&mut self, path: &str) -> ReplResult<()> {
-        let (namespace_id, ast) = self.prepare_file(&self.base_path.join(PathBuf::from(path)))?;
+        let file_path = CanonicalPathBuf::try_from_path(&self.base_path.join(path))
+            .map_err(|e| Cow::Owned(e.to_string()))?;
+        let (namespace_id, ast) = self.prepare_file(&file_path)?;
         self.consume_ast(namespace_id, &ast)
     }
 
@@ -306,5 +312,81 @@ impl Repl {
                 c => self.load_code(user_namespace, c)?,
             }
         }
+    }
+
+    fn try_stringify_backtrace(
+        &self,
+        err: InterpreterError,
+        backtrace: &Vec<BacktraceItem>,
+    ) -> ReplError {
+        match self.stringify_backtrace(err, backtrace) {
+            Ok(e) => e,
+            Err(e) => e.to_string().into(),
+        }
+    }
+
+    fn stringify_backtrace(
+        &self,
+        err: InterpreterError,
+        backtrace: &Vec<BacktraceItem>,
+    ) -> Result<InterpreterError, std::fmt::Error> {
+        let unknown = "Unknown";
+        let mut has_name = false;
+        let max_name_width = backtrace
+            .iter()
+            .map(|e| {
+                if let Term::Name(n, _) = e.1 {
+                    has_name = true;
+                    n.len()
+                } else {
+                    unknown.len()
+                }
+            })
+            .max()
+            .unwrap_or_default()
+            .min(24)
+            + 4;
+
+        if !has_name {
+            return Ok(err);
+        }
+
+        let mut res = String::with_capacity(1000);
+        {
+            res.push_str("\n╒═════════════════════════════ Runtime Error \n│\n│  ");
+            res.push_str(&err);
+            res.push('\n');
+
+            for (i, (namespace, term)) in backtrace.iter().rev().enumerate() {
+                let ns = self.program.get_namespace(*namespace);
+                let prefix = if i == 0 {
+                    "│\n└─ at:  "
+                } else {
+                    "        "
+                };
+                res.push_str(prefix);
+
+                write!(
+                    res,
+                    "{:max_name_width$} {}",
+                    if let Term::Name(name, _) = term {
+                        name
+                    } else {
+                        unknown
+                    },
+                    stringify_absolute_path(
+                        ns.path.as_ref().map(super::path::CanonicalPathBuf::as_path)
+                    ),
+                )?;
+
+                if let Term::Name(_, loc) = term {
+                    write!(res, ":{:?}", loc.start)?;
+                }
+
+                res.push('\n');
+            }
+        }
+
+        Ok(res.into())
     }
 }

@@ -196,10 +196,7 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
 
 fn eval_i(i: &mut Interpreter) -> InterpreterResult {
     if let Value::Address(namespace, name) = i.take()? {
-        if let Some(IntrinsicData { func, .. }) = get_intrinsic(&name) {
-            return func(i);
-        }
-        i.evaluate_namespaced_function(namespace, &name)
+        i.evaluate_name(namespace, &name)
     } else {
         Err("Expected function pointer on top of stack".into())
     }

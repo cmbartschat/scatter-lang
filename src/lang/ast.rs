@@ -6,7 +6,6 @@ pub enum Term {
     Number(f64),
     Bool(bool),
     Address(String),
-    #[expect(unused)]
     Name(String, SourceRange),
     Branch(Branch),
     Loop(Loop),

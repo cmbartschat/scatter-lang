@@ -5,6 +5,7 @@ mod interpreter;
 mod intrinsics;
 mod lang;
 mod parser;
+mod path;
 mod program;
 mod repl;
 mod test_analyze;
