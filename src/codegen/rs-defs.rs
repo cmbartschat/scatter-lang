@@ -21,9 +21,11 @@ use std::{
     ops::{Index, Range},
 };
 
-type ExecutionError = &'static str;
+type InterpreterError = Cow<'static, str>;
 
-type InterpreterResult = Result<(), ExecutionError>;
+type InterpreterValueResult<T> = Result<T, InterpreterError>;
+
+type InterpreterResult = InterpreterValueResult<()>;
 
 type Operation = fn(&mut Interpreter) -> InterpreterResult;
 
@@ -108,12 +110,12 @@ impl Interpreter {
         }
     }
 
-    pub fn readline(&mut self) -> Result<Option<String>, &'static str> {
+    pub fn readline(&mut self) -> InterpreterValueResult<Option<String>> {
         let mut line = String::new();
         let bytes_written = std::io::stdin()
             .lock()
             .read_line(&mut line)
-            .map_err(|_| "read_line failed")?;
+            .map_err(|_| -> InterpreterError { "Failed to read line".into() })?;
         if bytes_written == 0 {
             return Ok(None);
         }
@@ -125,7 +127,7 @@ impl Interpreter {
 
     // Interpreter API
 
-    pub fn check_condition(&mut self) -> Result<bool, ExecutionError> {
+    pub fn check_condition(&mut self) -> InterpreterValueResult<bool> {
         Ok(self.take()?.is_truthy())
     }
 
@@ -140,6 +142,6 @@ impl Interpreter {
 fn eval_i(i: &mut Interpreter) -> InterpreterResult {
     match i.take()? {
         Value::Address(f) => f(i),
-        _ => Err("Expected function pointer on top of stack"),
+        _ => Err("Expected function pointer on top of stack".into()),
     }
 }

@@ -1,4 +1,7 @@
-use std::io::{BufRead as _, StdinLock};
+use std::{
+    borrow::Cow,
+    io::{BufRead as _, StdinLock},
+};
 
 use crate::{
     intrinsics::{IntrinsicData, get_intrinsic},
@@ -6,7 +9,11 @@ use crate::{
     program::{NamespaceId, Program},
 };
 
-pub type InterpreterResult = Result<(), &'static str>;
+pub type InterpreterError = Cow<'static, str>;
+
+pub type InterpreterValueResult<T> = Result<T, InterpreterError>;
+
+pub type InterpreterResult = InterpreterValueResult<()>;
 
 pub struct Interpreter<'a> {
     pub stack: Vec<Value<'a>>,
@@ -35,7 +42,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn execute(mut self, block: &'a Block) -> Result<InterpreterSnapshot, &'static str> {
+    pub fn execute(mut self, block: &'a Block) -> InterpreterValueResult<InterpreterSnapshot> {
         self.evaluate_block(block)?;
         Ok(InterpreterSnapshot {
             stack: self.stack.into_iter().map(Into::into).collect(),
@@ -48,7 +55,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn readline(&mut self) -> Result<Option<String>, &'static str> {
+    pub fn readline(&mut self) -> InterpreterValueResult<Option<String>> {
         match &mut self.input {
             Some(e) => {
                 let mut line = String::new();
@@ -61,31 +68,31 @@ impl<'a> Interpreter<'a> {
                 }
                 Ok(Some(line))
             }
-            None => Err("Cannot read line while stdin is not attached"),
+            None => Err("Cannot read line while stdin is not attached".into()),
         }
     }
 
     // Codegen Interpreter Start
-    pub fn take(&mut self) -> Result<Value<'a>, &'static str> {
+    pub fn take(&mut self) -> InterpreterValueResult<Value<'a>> {
         match self.stack.pop() {
             Some(a) => Ok(a),
-            None => Err("Stack empty"),
+            None => Err("Stack empty".into()),
         }
     }
 
-    pub fn take_number(&mut self) -> Result<f64, &'static str> {
+    pub fn take_number(&mut self) -> InterpreterValueResult<f64> {
         if let Value::Number(v) = self.take()? {
             Ok(v)
         } else {
-            Err("Expected number on top of stack")
+            Err("Expected number on top of stack".into())
         }
     }
 
-    pub fn take_string(&mut self) -> Result<CharString<'a>, &'static str> {
+    pub fn take_string(&mut self) -> InterpreterValueResult<CharString<'a>> {
         if let Value::String(v) = self.take()? {
             Ok(v)
         } else {
-            Err("Expected string on top of stack")
+            Err("Expected string on top of stack".into())
         }
     }
 
@@ -122,23 +129,23 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    pub fn take2(&mut self) -> Result<(Value<'a>, Value<'a>), &'static str> {
+    pub fn take2(&mut self) -> InterpreterValueResult<(Value<'a>, Value<'a>)> {
         let top = self.take()?;
         let second = self.take()?;
         Ok((second, top))
     }
 
-    pub fn take3(&mut self) -> Result<(Value<'a>, Value<'a>, Value<'a>), &'static str> {
+    pub fn take3(&mut self) -> InterpreterValueResult<(Value<'a>, Value<'a>, Value<'a>)> {
         let c = self.take()?;
         let b = self.take()?;
         let a = self.take()?;
         Ok((a, b, c))
     }
 
-    pub fn take2_numbers(&mut self) -> Result<(f64, f64), &'static str> {
+    pub fn take2_numbers(&mut self) -> InterpreterValueResult<(f64, f64)> {
         match self.take2()? {
             (Value::Number(a), Value::Number(b)) => Ok((a, b)),
-            _ => Err("Expected two numbers on top of stack"),
+            _ => Err("Expected two numbers on top of stack".into()),
         }
     }
 
@@ -170,7 +177,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn evaluate_block(&mut self, block: &'a Block) -> Result<(), &'static str> {
+    fn evaluate_block(&mut self, block: &'a Block) -> InterpreterResult {
         for term in &block.terms {
             self.evaluate_term(term)?;
         }
@@ -198,11 +205,7 @@ impl<'a> Interpreter<'a> {
         let Some((resolved_namespace, resolved_name)) =
             self.program.resolve_function(current_namespace, name)
         else {
-            {
-                #![expect(clippy::print_stderr)]
-                eprintln!("Failed to resolve function: [{:?}]", name);
-            }
-            return Err("Unknown function name");
+            return Err(format!("Unknown function name: {name}").into());
         };
 
         let function = &self.program.namespaces[resolved_namespace].functions[resolved_name];

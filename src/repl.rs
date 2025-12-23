@@ -268,7 +268,7 @@ impl Repl {
         Ok(())
     }
 
-    fn prompt(&self) -> Result<String, &'static str> {
+    fn prompt(&self) -> ReplResult<String> {
         let mut io = std::io::stdout().lock();
         self.write_prompt(&mut io).map_err(|_| "Output error")?;
         io.flush().map_err(|_| "Flush error")?;

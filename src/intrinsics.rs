@@ -105,10 +105,10 @@ fn increment(i: &mut Interpreter) -> InterpreterResult {
 
 fn substring(i: &mut Interpreter) -> InterpreterResult {
     let Some(end) = f64_to_usize(i.take_number()?) else {
-        return Err("Invalid substring end index");
+        return Err("Invalid substring end index".into());
     };
     let Some(start) = f64_to_usize(i.take_number()?) else {
-        return Err("Invalid substring start index");
+        return Err("Invalid substring start index".into());
     };
     let original = i.take_string()?;
     let start = start.min(original.len());
@@ -123,7 +123,7 @@ fn join(i: &mut Interpreter) -> InterpreterResult {
 
 fn length(i: &mut Interpreter) -> InterpreterResult {
     let Some(len) = usize_to_f64(i.take_string()?.len()) else {
-        return Err("String length is out of range");
+        return Err("String length is out of range".into());
     };
     i.push(len)
 }
@@ -131,7 +131,7 @@ fn length(i: &mut Interpreter) -> InterpreterResult {
 fn to_char(i: &mut Interpreter) -> InterpreterResult {
     let s = i.take_string()?;
     if s.len() != 1 {
-        return Err("to_ascii only works on strings with length: 1");
+        return Err("to_ascii only works on strings with length: 1".into());
     }
     let code = s[0] as u32;
     i.push(f64::from(code))
@@ -140,7 +140,7 @@ fn to_char(i: &mut Interpreter) -> InterpreterResult {
 fn from_char(i: &mut Interpreter) -> InterpreterResult {
     let s = i.take_number()?;
     let Some(char) = f64_to_char(s) else {
-        return Err("from_char only works with valid unicode codepoints");
+        return Err("from_char only works with valid unicode codepoints".into());
     };
     i.push(Value::String(CharString::from(char)))
 }
@@ -151,7 +151,7 @@ fn string_index(i: &mut Interpreter) -> InterpreterResult {
     let location = match haystack.find(&needle) {
         Some(e) => match usize_to_f64(e) {
             Some(e) => e,
-            None => return Err("String index cannot be converted to number"),
+            None => return Err("String index cannot be converted to number".into()),
         },
         None => -1f64,
     };
@@ -164,7 +164,7 @@ fn equals(i: &mut Interpreter) -> InterpreterResult {
         (Value::Number(a), Value::Number(b)) => i.push(a == b),
         (Value::String(a), Value::String(b)) => i.push(a == b),
         (Value::Bool(a), Value::Bool(b)) => i.push(a == b),
-        _ => Err("Mismatched types cannot be compared with =="),
+        _ => Err("Mismatched types cannot be compared with ==".into()),
     }
 }
 
@@ -189,11 +189,7 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
     if i.take()?.is_truthy() {
         Ok(())
     } else {
-        {
-            #![expect(clippy::print_stderr)]
-            eprintln!("Assertion failed: {}", message);
-        }
-        Err("Assertion failed")
+        Err(format!("Assertion failed: {}", message).into())
     }
 }
 // Codegen Intrinsics End
@@ -205,7 +201,7 @@ fn eval_i(i: &mut Interpreter) -> InterpreterResult {
         }
         i.evaluate_namespaced_function(namespace, &name)
     } else {
-        Err("Expected function pointer on top of stack")
+        Err("Expected function pointer on top of stack".into())
     }
 }
 
