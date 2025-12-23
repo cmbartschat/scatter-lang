@@ -299,7 +299,16 @@ impl Repl {
                     "exit" => return Ok(()),
                     "list" => self.list(user_namespace),
                     "clear" => self.snapshot.stack.clear(),
-                    c => self.load_code(user_namespace, c)?,
+                    c => match (self.is_terminal, self.load_code(user_namespace, c)) {
+                        (_, Ok(())) => {}
+                        (true, Err(e)) => {
+                            {
+                                #![expect(clippy::print_stderr, reason = "print and stay running")]
+                                eprintln!("{e}");
+                            }
+                        }
+                        (false, Err(e)) => return Err(e),
+                    },
                 },
             }
         }
