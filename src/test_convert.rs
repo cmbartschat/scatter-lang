@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::float_cmp, clippy::unreadable_literal)]
     use crate::convert::{f64_to_char, f64_to_usize, hex_char_to_u8, usize_to_f64};
 
     static MAX_SAFE_USIZE: usize = 0x1fffffffffffff;
@@ -33,8 +34,8 @@ mod tests {
 
     #[test]
     fn usize_to_f64_valid() {
-        assert_eq!(usize_to_f64(0).unwrap(), 0.);
-        assert_eq!(usize_to_f64(5).unwrap(), 5.);
+        assert_eq!(usize_to_f64(0).unwrap(), 0f64);
+        assert_eq!(usize_to_f64(5).unwrap(), 5f64);
         assert_eq!(usize_to_f64(MAX_SAFE_USIZE).unwrap(), MAX_SAFE_F64);
     }
 

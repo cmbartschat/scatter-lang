@@ -34,7 +34,7 @@ echo " 8/10 unicode (Rust)"
   chmod +x gen/unicode.rs
   ./gen/unicode.rs > /dev/null 2>/dev/null
 
-echo "9/10 lint"
+echo " 9/10 lint"
   cargo clippy -q --all-targets
   cargo fmt --check
 
