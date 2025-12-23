@@ -87,14 +87,17 @@ pub fn js_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
     ctx.namespace = main_namespace;
     codegen_func(&mut ctx, "main_body", main);
 
-    println!(
-        "{DEFS}{}
+    {
+        #![expect(clippy::print_stdout, reason = "code generation")]
+        println!(
+            "{DEFS}{}
 try {{
   main_body()
   printStack()
 }} catch (err) {{
    console.error(err)
 }}",
-        ctx.target.into_string()
-    );
+            ctx.target.into_string()
+        );
+    }
 }

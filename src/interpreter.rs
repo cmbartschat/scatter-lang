@@ -198,7 +198,10 @@ impl<'a> Interpreter<'a> {
         let Some((resolved_namespace, resolved_name)) =
             self.program.resolve_function(current_namespace, name)
         else {
-            eprintln!("Failed to resolve function: [{:?}]", name);
+            {
+                #![expect(clippy::print_stderr)]
+                eprintln!("Failed to resolve function: [{:?}]", name);
+            }
             return Err("Unknown function name");
         };
 

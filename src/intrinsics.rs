@@ -169,6 +169,7 @@ fn equals(i: &mut Interpreter) -> InterpreterResult {
 }
 
 fn print(i: &mut Interpreter) -> InterpreterResult {
+    #![expect(clippy::print_stdout, reason = "print intrinsic")]
     println!("{}", i.take()?);
     Ok(())
 }
@@ -188,7 +189,10 @@ fn assert(i: &mut Interpreter) -> InterpreterResult {
     if i.take()?.is_truthy() {
         Ok(())
     } else {
-        eprintln!("Assertion failed: {}", message);
+        {
+            #![expect(clippy::print_stderr)]
+            eprintln!("Assertion failed: {}", message);
+        }
         Err("Assertion failed")
     }
 }

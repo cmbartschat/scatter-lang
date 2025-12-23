@@ -126,12 +126,15 @@ pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &B
     ctx.namespace = main_namespace;
     codegen_func(&mut ctx, "main_body", main);
 
-    println!(
-        "{DEFS}{}
+    {
+        #![expect(clippy::print_stdout, reason = "code generation")]
+        println!(
+            "{DEFS}{}
 int main(void) {{
   checked(main_body());
   checked(print_stack());
 }}",
-        ctx.target.into_string()
-    );
+            ctx.target.into_string()
+        );
+    }
 }

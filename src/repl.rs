@@ -18,6 +18,7 @@ use crate::{
 };
 
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
+    #![expect(clippy::print_stdout, reason = "reporting arity")]
     match result {
         Some(Ok(arity)) => println!("{}: {}", label, arity.stringify()),
         Some(Err(AnalysisError::IndefiniteSize)) => {
@@ -185,10 +186,7 @@ impl Repl {
                 "c" => c_codegen_module(&self.program, namespace, &ast.body),
                 "js" => js_codegen_module(&self.program, namespace, &ast.body),
                 "rs" => rs_codegen_module(&self.program, namespace, &ast.body),
-                _ => {
-                    eprintln!("Expected c or js for generation mode");
-                    std::process::exit(1);
-                }
+                _ => return Err("Expected 'c', 'js', or 'rs' for generation mode".into()),
             }
             return Ok(());
         }
@@ -225,6 +223,7 @@ impl Repl {
     }
 
     pub fn list(&mut self, user_namespace: usize) {
+        #![expect(clippy::print_stdout, reason = "listing functions")]
         println!("Available functions:");
         for name in self.program.namespaces[user_namespace].functions.keys() {
             println!("  {name}");
@@ -290,7 +289,10 @@ impl Repl {
             }
 
             if !self.snapshot.stack.is_empty() {
-                println!("{:?}", self.snapshot.stack);
+                {
+                    #![expect(clippy::print_stdout, reason = "printing remainder of stack")]
+                    println!("{:?}", self.snapshot.stack);
+                }
             }
             return Ok(());
         }

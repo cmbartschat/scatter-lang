@@ -136,15 +136,17 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
         })
         .collect::<Vec<_>>()
         .join("\n");
-
-    println!(
-        "{definitions}\n{libs}\n{intrinsics}{}
+    {
+        #![expect(clippy::print_stdout, reason = "code generation")]
+        println!(
+            "{definitions}\n{libs}\n{intrinsics}{}
 fn main() -> InterpreterResult {{
   let mut c = Interpreter::new();
   main_body(&mut c)?;
   c.print()?;
   Ok(())
 }}",
-        ctx.target.into_string()
-    );
+            ctx.target.into_string()
+        );
+    }
 }

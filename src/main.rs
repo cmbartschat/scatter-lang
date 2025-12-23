@@ -15,7 +15,7 @@ mod test_parser;
 mod tokenizer;
 use clap::Parser;
 
-use crate::repl::{Repl, ReplError};
+use crate::repl::Repl;
 
 #[derive(Parser, Debug)]
 pub struct ReplArgs {
@@ -30,16 +30,21 @@ pub struct ReplArgs {
     pub generate: Option<String>,
 }
 
-fn main() -> Result<(), ReplError> {
+fn main() {
+    #![expect(clippy::print_stderr, reason = "main function")]
     let args = ReplArgs::parse();
 
     if args.generate.is_some() && args.files.len() != 1 {
-        return Err("Expected exactly one file provided".into());
+        eprintln!("Expected exactly one file provided when generating");
+        std::process::exit(1);
     }
 
     let repl = Repl::new(
         args,
         std::env::current_dir().expect("Could not get current directory"),
     );
-    repl.run()
+    if let Err(e) = repl.run() {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 }
