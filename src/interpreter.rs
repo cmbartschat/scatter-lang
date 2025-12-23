@@ -255,7 +255,7 @@ impl<'a> Interpreter<'a> {
             Term::String(l) => self.push(Value::String(l.as_str().into())),
             Term::Number(l) => self.push(Value::Number(*l)),
             Term::Bool(l) => self.push(Value::Bool(*l)),
-            Term::Name(name) => self.evaluate_name(name),
+            Term::Name(name, _) => self.evaluate_name(name),
             Term::Branch(b) => self.evaluate_branch(b),
             Term::Loop(l) => self.evaluate_loop(l),
             Term::Address(s) => self.evaluate_address(s),

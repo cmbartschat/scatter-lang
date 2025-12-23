@@ -46,7 +46,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
             .write_line(&format!("checked(push_number_literal({}L));", e)),
         Term::Bool(true) => ctx.target.write_line("checked(push_true_literal());"),
         Term::Bool(false) => ctx.target.write_line("checked(push_false_literal());"),
-        Term::Name(n) => ctx
+        Term::Name(n, _) => ctx
             .target
             .write_line(&format!("checked({}());", ctx.resolve_name_reference(n))),
         Term::Address(n) => ctx.target.write_line(&format!(

@@ -75,7 +75,7 @@ fn consume_block_terms(
             Token::String(l) => target.push(Term::String(l)),
             Token::Number(l) => target.push(Term::Number(l)),
             Token::Bool(l) => target.push(Term::Bool(l)),
-            Token::Name(l) => target.push(Term::Name(l)),
+            Token::Name(l) => target.push(Term::Name(l, loc)),
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => {}
                 Symbol::Hash => {
@@ -228,7 +228,7 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
             Token::String(l) => target.push(Term::String(l)),
             Token::Number(l) => target.push(Term::Number(l)),
             Token::Bool(l) => target.push(Term::Bool(l)),
-            Token::Name(l) => target.push(Term::Name(l)),
+            Token::Name(l) => target.push(Term::Name(l, loc)),
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => break,
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens, &loc.start)?)),
@@ -369,7 +369,7 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
                 if maybe_consume_next_symbol(Symbol::Colon, tokens).is_some() {
                     module.functions.push(parse_function(s, tokens)?);
                 } else {
-                    module.body.terms.push(Term::Name(s));
+                    module.body.terms.push(Term::Name(s, loc));
                 }
             }
             Token::Symbol(s) => match s {

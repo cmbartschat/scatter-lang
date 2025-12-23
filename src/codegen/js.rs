@@ -34,7 +34,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
         Term::Address(name) => ctx
             .target
             .write_line(&format!("push({})", ctx.resolve_name_reference(name))),
-        Term::Name(n) => ctx
+        Term::Name(n, _) => ctx
             .target
             .write_line(&format!("{}()", ctx.resolve_name_reference(n))),
         Term::Branch(branch) => {

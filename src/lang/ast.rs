@@ -1,12 +1,30 @@
-#[derive(Clone, Debug, PartialEq)]
+use crate::lang::SourceRange;
+
+#[derive(Clone, Debug)]
 pub enum Term {
     String(String),
     Number(f64),
     Bool(bool),
     Address(String),
-    Name(String),
+    #[expect(unused)]
+    Name(String, SourceRange),
     Branch(Branch),
     Loop(Loop),
+}
+
+impl PartialEq for Term {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0))
+            | (Self::Address(l0), Self::Address(r0))
+            | (Self::Name(l0, _), Self::Name(r0, _)) => l0 == r0,
+            (Self::Branch(l0), Self::Branch(r0)) => l0 == r0,
+            (Self::Loop(l0), Self::Loop(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
 }
 
 impl From<i32> for Term {

@@ -189,7 +189,7 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
         Term::Number(_) => Ok(Arity::literal(Type::Number)),
         Term::Bool(_) => Ok(Arity::literal(Type::Bool)),
         Term::Address(_) => Ok(Arity::literal(Type::Address)),
-        Term::Name(n) => analyze_name(analysis, n.as_str()),
+        Term::Name(n, _) => analyze_name(analysis, n.as_str()),
         Term::Branch(branch) => analyze_branch(analysis, branch),
         Term::Loop(loop_v) => analyze_loop(analysis, loop_v),
     }
