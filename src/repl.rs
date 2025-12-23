@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::Write as _,
-    io::{StdoutLock, Write as _},
+    io::{IsTerminal as _, StdoutLock, Write as _, stdin},
     path::{Path, PathBuf},
 };
 
@@ -43,6 +43,7 @@ pub struct Repl {
     base_path: PathBuf,
     loaded_paths: HashMap<CanonicalPathBuf, NamespaceId>,
     pending_code: String,
+    is_terminal: bool,
 }
 
 pub type ReplError = Cow<'static, str>;
@@ -76,6 +77,7 @@ impl Repl {
             base_path,
             loaded_paths: HashMap::default(),
             pending_code: String::new(),
+            is_terminal: stdin().lock().is_terminal(),
         }
     }
 
@@ -245,18 +247,24 @@ impl Repl {
         Ok(())
     }
 
-    fn prompt(&self) -> ReplResult<String> {
-        let mut io = std::io::stdout().lock();
-        self.write_prompt(&mut io).map_err(|_| "Output error")?;
-        io.flush().map_err(|_| "Flush error")?;
-        std::mem::drop(io);
+    fn prompt(&self) -> ReplResult<Option<String>> {
+        if self.is_terminal {
+            let mut io = std::io::stdout().lock();
+            self.write_prompt(&mut io).map_err(|_| "Output error")?;
+            io.flush().map_err(|_| "Flush error")?;
+            std::mem::drop(io);
+        }
 
         let mut line = String::new();
-        std::io::stdin()
+        let written = std::io::stdin()
             .read_line(&mut line)
             .map_err(|_| "Stdin read error")?;
 
-        Ok(line)
+        if written == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(line))
+        }
     }
 
     pub fn run(mut self) -> ReplResult<()> {
@@ -276,11 +284,23 @@ impl Repl {
 
         let user_namespace = self.program.allocate_namespace();
         loop {
-            match self.prompt()?.trim() {
-                "exit" => return Ok(()),
-                "list" => self.list(user_namespace),
-                "clear" => self.snapshot.stack.clear(),
-                c => self.load_code(user_namespace, c)?,
+            let input = self.prompt()?;
+            match input {
+                None => {
+                    if !self.is_terminal && !self.snapshot.stack.is_empty() {
+                        {
+                            #![expect(clippy::print_stdout, reason = "Output")]
+                            println!("{:?}", self.snapshot.stack);
+                        }
+                    }
+                    return Ok(());
+                }
+                Some(input) => match input.trim() {
+                    "exit" => return Ok(()),
+                    "list" => self.list(user_namespace),
+                    "clear" => self.snapshot.stack.clear(),
+                    c => self.load_code(user_namespace, c)?,
+                },
             }
         }
     }
