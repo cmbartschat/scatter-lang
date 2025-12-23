@@ -15,8 +15,13 @@ enum EscapeState {
     Hex(Option<char>),
 }
 
+enum EscapeStateError {
+    InvalidCharacter,
+    InvalidHex,
+}
+
 impl EscapeState {
-    pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), ()> {
+    pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), EscapeStateError> {
         let res = match self {
             EscapeState::EscapeNext => match char {
                 c @ ('\\' | '"' | '\'') => c,
@@ -27,7 +32,7 @@ impl EscapeState {
                 '\n' => return Ok((None, None)),
                 'x' => return Ok((Some(Self::Hex(None)), None)),
                 _ => {
-                    return Err(());
+                    return Err(EscapeStateError::InvalidCharacter);
                 }
             },
             Self::Hex(x) => match x {
@@ -35,7 +40,7 @@ impl EscapeState {
                     let (Some(high_value), Some(low_value)) =
                         (hex_char_to_u8(prev_char), hex_char_to_u8(char))
                     else {
-                        return Err(());
+                        return Err(EscapeStateError::InvalidHex);
                     };
                     (high_value * 16 + low_value) as char
                 }
@@ -72,8 +77,11 @@ impl StringParseState {
                         word.push(c);
                     }
                 }
-                Err(()) => {
-                    return Err(TokenizeError::InvalidStringEscape(loc.current, char));
+                Err(EscapeStateError::InvalidCharacter) => {
+                    return Err(TokenizeError::InvalidStringEscapeChar(loc.current));
+                }
+                Err(EscapeStateError::InvalidHex) => {
+                    return Err(TokenizeError::InvalidStringEscapeHex(loc.current));
                 }
             },
             None => match (char, self.delimiter) {
@@ -343,7 +351,8 @@ impl ParseState {
 #[derive(Debug)]
 pub enum TokenizeError {
     UnboundedString(SourceLocation),
-    InvalidStringEscape(SourceLocation, char),
+    InvalidStringEscapeChar(SourceLocation),
+    InvalidStringEscapeHex(SourceLocation),
     UnboundedComment(SourceLocation),
 }
 

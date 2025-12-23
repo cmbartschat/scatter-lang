@@ -79,3 +79,19 @@ impl Debug for SourceRange {
         }
     }
 }
+impl SourceRange {
+    pub fn extract<'a>(&self, string: &'a str) -> Vec<(usize, &'a str)> {
+        string
+            .lines()
+            .enumerate()
+            .skip(self.start.line)
+            .take(self.end.line - self.start.line + 1)
+            .collect()
+    }
+}
+
+impl SourceLocation {
+    pub fn extract<'a>(&self, string: &'a str) -> Option<&'a str> {
+        string.lines().nth(self.line)
+    }
+}

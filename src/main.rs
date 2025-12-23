@@ -4,6 +4,7 @@ mod convert;
 mod interpreter;
 mod intrinsics;
 mod lang;
+mod parse_error;
 mod parser;
 mod path;
 mod program;

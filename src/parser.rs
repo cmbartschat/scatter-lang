@@ -5,7 +5,12 @@ use crate::{
         Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module, ParsedToken,
         SourceLocation, SourceRange, Symbol, Term, Token,
     },
-    tokenizer::{TokenizeError, tokenize},
+    parse_error::{
+        EndOfFileError, ParseError, ParseSection, ReasonExpectingMore, UnexpectedContext,
+        UnexpectedError, WrappedExpression, cannot_use_in, need_more, unclosed, unexpected_symbol,
+        unexpected_symbol_in,
+    },
+    tokenizer::tokenize,
 };
 
 type Tokens = Peekable<IntoIter<ParsedToken>>;
@@ -28,33 +33,20 @@ fn ignore_whitespace(tokens: &mut Tokens) {
     }
 }
 
-fn loc_error<T>(message: &'static str, loc: &SourceRange) -> ParseResult<T> {
-    Err(ParseError::Location(message, loc.start))
-}
-
-fn range_error_between<T>(
-    message: &'static str,
-    start: &SourceLocation,
-    end: &SourceRange,
-) -> ParseResult<T> {
-    Err(ParseError::Range(message, (*start, end.end).into()))
-}
-
-fn unclosed<T>(start: SourceLocation, message: &'static str) -> ParseResult<T> {
-    Err(ParseError::UnclosedExpression(message, start))
-}
-
-fn assert_next_symbol(
+fn assert_next_symbol<T>(
     tokens: &mut Tokens,
     symbol: Symbol,
-    wrong_symbol_message: &'static str,
-    end_of_file_message: &'static str,
-) -> ParseResult<ParsedToken> {
+    err_if_unexpected: T,
+    err_if_missing: EndOfFileError,
+) -> ParseResult<ParsedToken>
+where
+    T: Fn(ParsedToken) -> UnexpectedError,
+{
     ignore_whitespace(tokens);
     match tokens.next() {
         Some(t) if t.value == Token::Symbol(symbol) => Ok(t),
-        Some(t) => loc_error(wrong_symbol_message, &t.loc),
-        None => Err(ParseError::UnexpectedEnd(end_of_file_message)),
+        Some(t) => Err(ParseError::Unexpected(err_if_unexpected(t))),
+        None => Err(ParseError::EndOfFile(err_if_missing)),
     }
 }
 
@@ -78,8 +70,8 @@ fn consume_block_terms(
             Token::Name(l) => target.push(Term::Name(l, loc)),
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => {}
-                Symbol::Hash => {
-                    return loc_error("Unexpected # in block", &loc);
+                Symbol::Hash | Symbol::Colon => {
+                    return unexpected_symbol(s, loc.start);
                 }
                 Symbol::At => match tokens.peek() {
                     Some(ParsedToken {
@@ -89,14 +81,20 @@ fn consume_block_terms(
                         target.push(Term::Address(n.clone()));
                         tokens.next();
                     }
-                    Some(ParsedToken { loc, .. }) => {
-                        return loc_error("Expected name after @", loc);
+                    Some(ParsedToken {
+                        loc: unexpected_loc,
+                        ..
+                    }) => {
+                        return cannot_use_in(
+                            UnexpectedContext::Address,
+                            loc.start,
+                            unexpected_loc.start,
+                        );
                     }
-                    None => return Err(ParseError::UnexpectedEnd("File should not end with @")),
+                    None => {
+                        return need_more(ReasonExpectingMore::Address, loc.start);
+                    }
                 },
-                Symbol::Colon => {
-                    return loc_error("Unexpected : in block", &loc);
-                }
                 Symbol::CurlyClose => return Ok(Some((BlockEndSymbol::CurlyClose, loc))),
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens, &loc.start)?)),
                 Symbol::ParenClose => return Ok(Some((BlockEndSymbol::ParenClose, loc))),
@@ -111,19 +109,20 @@ fn consume_block_terms(
 
 fn parse_condition(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Block> {
     let mut condition = Block { terms: vec![] };
+    let section = ParseSection::Condition;
 
     match consume_block_terms(&mut condition.terms, tokens)? {
         Some((BlockEndSymbol::CurlyClose, loc)) => {
-            range_error_between("Unexpected } in condition", start, &loc)
+            unexpected_symbol_in(Symbol::CurlyClose, loc.start, section, *start)
         }
         Some((BlockEndSymbol::ParenOpen, loc)) => {
-            range_error_between("Unexpected ( in condition", start, &loc)
+            unexpected_symbol_in(Symbol::ParenOpen, loc.start, section, *start)
         }
         Some((BlockEndSymbol::SquareClose, loc)) => {
-            range_error_between("Unexpected ] in condition", start, &loc)
+            unexpected_symbol_in(Symbol::SquareClose, loc.start, section, *start)
         }
         Some((BlockEndSymbol::ParenClose, _)) => Ok(condition),
-        None => unclosed(*start, "Unclosed condition"),
+        None => unclosed(*start, WrappedExpression::Condition),
     }
 }
 
@@ -138,18 +137,19 @@ fn parse_branch_arm(
 ) -> ParseResult<(Block, Block, BranchArmStatus)> {
     let condition = parse_condition(tokens, start)?;
     let mut block = Block { terms: vec![] };
+    let section = ParseSection::Branch;
     match consume_block_terms(&mut block.terms, tokens)? {
         Some((BlockEndSymbol::CurlyClose, _)) => Ok((condition, block, BranchArmStatus::Done)),
         Some((BlockEndSymbol::ParenClose, loc)) => {
-            range_error_between("Unexpected ) in branch arm", start, &loc)
+            unexpected_symbol_in(Symbol::ParenClose, loc.start, section, *start)
         }
         Some((BlockEndSymbol::ParenOpen, loc)) => {
             Ok((condition, block, BranchArmStatus::Continue(loc.start)))
         }
         Some((BlockEndSymbol::SquareClose, loc)) => {
-            range_error_between("Unexpected ] in branch arm", start, &loc)
+            unexpected_symbol_in(Symbol::SquareClose, loc.start, section, *start)
         }
-        None => unclosed(*start, "Unclosed branch"),
+        None => unclosed(*start, WrappedExpression::Branch),
     }
 }
 
@@ -159,8 +159,12 @@ fn parse_branch(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Bran
     assert_next_symbol(
         tokens,
         Symbol::ParenOpen,
-        "First term of branch should be a condition",
-        "Unclosed branch",
+        |t| UnexpectedError::InContext {
+            context: UnexpectedContext::FirstInBranch,
+            context_start: *start,
+            loc: t.loc.start,
+        },
+        EndOfFileError::ExpectedMoreAfter(ReasonExpectingMore::Branch, *start),
     )?;
 
     let mut start = *start;
@@ -188,21 +192,30 @@ fn parse_loop(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Loop> 
         loop_v.pre_condition = Some(parse_condition(tokens, &t.loc.start)?);
     }
 
+    let section = ParseSection::Loop;
     match consume_block_terms(&mut loop_v.body.terms, tokens)? {
-        Some((BlockEndSymbol::ParenClose, loc)) => loc_error("Unexpected ) in loop", &loc),
-        Some((BlockEndSymbol::CurlyClose, loc)) => loc_error("Unexpected } in loop", &loc),
+        Some((BlockEndSymbol::ParenClose, loc)) => {
+            unexpected_symbol_in(Symbol::ParenClose, loc.start, section, *start)
+        }
+        Some((BlockEndSymbol::CurlyClose, loc)) => {
+            unexpected_symbol_in(Symbol::CurlyClose, loc.start, section, *start)
+        }
         Some((BlockEndSymbol::ParenOpen, loc)) => {
             loop_v.post_condition = Some(parse_condition(tokens, &loc.start)?);
             assert_next_symbol(
                 tokens,
                 Symbol::SquareClose,
-                "Expected ] at the end of post condition",
-                "Unclosed loop",
+                |t| UnexpectedError::InContext {
+                    context: UnexpectedContext::AfterPostCondition,
+                    context_start: *start,
+                    loc: t.loc.start,
+                },
+                EndOfFileError::UnclosedExpression(WrappedExpression::Loop, *start),
             )?;
             Ok(loop_v)
         }
         Some((BlockEndSymbol::SquareClose, _)) => Ok(loop_v),
-        None => unclosed(*start, "Unclosed loop"),
+        None => unclosed(*start, WrappedExpression::Loop),
     }
 }
 
@@ -210,13 +223,13 @@ fn parse_function_body(tokens: &mut Tokens, start: &SourceLocation) -> ParseResu
     let mut body = Block { terms: vec![] };
 
     match consume_block_terms(&mut body.terms, tokens)? {
-        Some((BlockEndSymbol::ParenClose, loc)) => loc_error("Unexpected ) in function body", &loc),
-        Some((BlockEndSymbol::ParenOpen, loc)) => loc_error("Unexpected ( in function body", &loc),
+        Some((BlockEndSymbol::ParenClose, loc)) => unexpected_symbol(Symbol::ParenClose, loc.start),
+        Some((BlockEndSymbol::ParenOpen, loc)) => unexpected_symbol(Symbol::ParenOpen, loc.start),
         Some((BlockEndSymbol::SquareClose, loc)) => {
-            loc_error("Unexpected ] in function body", &loc)
+            unexpected_symbol(Symbol::SquareClose, loc.start)
         }
         Some((BlockEndSymbol::CurlyClose, _)) => Ok(body),
-        None => unclosed(*start, "Unclosed function body"),
+        None => unclosed(*start, WrappedExpression::Function),
     }
 }
 
@@ -233,13 +246,13 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
                 Symbol::LineEnd => break,
                 Symbol::CurlyOpen => target.push(Term::Branch(parse_branch(tokens, &loc.start)?)),
                 Symbol::SquareOpen => target.push(Term::Loop(parse_loop(tokens, &loc.start)?)),
-                Symbol::Colon
+                s @ (Symbol::Colon
                 | Symbol::CurlyClose
                 | Symbol::ParenOpen
                 | Symbol::ParenClose
                 | Symbol::SquareClose
-                | Symbol::Hash => {
-                    return Err(ParseError::Location("Unexpected character", loc.start));
+                | Symbol::Hash) => {
+                    return unexpected_symbol(s, loc.start);
                 }
                 Symbol::At => match tokens.peek() {
                     Some(ParsedToken {
@@ -249,10 +262,19 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
                         target.push(Term::Address(n.clone()));
                         tokens.next();
                     }
-                    Some(ParsedToken { loc, .. }) => {
-                        return loc_error("Expected name after @", loc);
+                    Some(ParsedToken {
+                        loc: unexpected_loc,
+                        ..
+                    }) => {
+                        return cannot_use_in(
+                            UnexpectedContext::Address,
+                            loc.start,
+                            unexpected_loc.start,
+                        );
                     }
-                    None => return Err(ParseError::UnexpectedEnd("File should not end with @")),
+                    None => {
+                        return need_more(ReasonExpectingMore::Address, loc.start);
+                    }
                 },
             },
         }
@@ -304,7 +326,7 @@ fn parse_import(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Impo
         loc: first_loc,
     }) = tokens.next()
     else {
-        return unclosed(*start, "Incomplete import statement");
+        return need_more(ReasonExpectingMore::ImportName, *start);
     };
 
     let naming: ImportNaming = match first {
@@ -314,7 +336,9 @@ fn parse_import(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Impo
             let mut names = vec![];
             loop {
                 match tokens.next() {
-                    None => return unclosed(first_loc.start, "Unclosed name list"),
+                    None => {
+                        return unclosed(first_loc.start, WrappedExpression::ImportNameList);
+                    }
                     Some(ParsedToken {
                         value: Token::Symbol(Symbol::CurlyClose),
                         ..
@@ -324,33 +348,34 @@ fn parse_import(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Impo
                         ..
                     }) => names.push(n),
                     Some(a) => {
-                        return Err(ParseError::Range(
-                            "Unexpected character in import name block",
-                            a.loc,
-                        ));
+                        return cannot_use_in(
+                            UnexpectedContext::ImportNameList,
+                            *start,
+                            a.loc.start,
+                        );
                     }
                 }
             }
             ImportNaming::Named(names)
         }
         Token::String(_) | Token::Number(_) | Token::Bool(_) | Token::Symbol(_) => {
-            return loc_error("Unexpected expression in import", &first_loc);
+            return cannot_use_in(UnexpectedContext::ImportNaming, *start, first_loc.start);
         }
     };
 
-    let path = match tokens.next() {
+    match tokens.next() {
         Some(ParsedToken {
             value: Token::String(s),
             ..
-        }) => s,
-        Some(ParsedToken { loc, .. }) => return loc_error("Expected path after import", &loc),
-        None => return unclosed(*start, "Unclosed import statement"),
-    };
-
-    Ok(Import {
-        naming,
-        location: ImportLocation::Relative(path),
-    })
+        }) => Ok(Import {
+            naming,
+            location: ImportLocation::Relative(s),
+        }),
+        Some(ParsedToken { loc, .. }) => {
+            cannot_use_in(UnexpectedContext::ImportPath, *start, loc.start)
+        }
+        None => need_more(ReasonExpectingMore::ImportPath, *start),
+    }
 }
 
 fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
@@ -382,21 +407,30 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
                         module.body.terms.push(Term::Address(n.clone()));
                         tokens.next();
                     }
-                    Some(ParsedToken { loc, .. }) => {
-                        return loc_error("Expected name after @", loc);
+                    Some(ParsedToken {
+                        loc: unexpected_loc,
+                        ..
+                    }) => {
+                        return cannot_use_in(
+                            UnexpectedContext::Address,
+                            loc.start,
+                            unexpected_loc.start,
+                        );
                     }
-                    None => return Err(ParseError::UnexpectedEnd("Cannot end file after @")),
+                    None => {
+                        return need_more(ReasonExpectingMore::Address, loc.start);
+                    }
                 },
                 Symbol::Hash => module.imports.push(parse_import(tokens, &loc.start)?),
-                Symbol::Colon => return loc_error("Unexpected : in module", &loc),
-                Symbol::ParenClose => return loc_error("Unexpected ) in module", &loc),
-                Symbol::ParenOpen => return loc_error("Unexpected ( in module", &loc),
-                Symbol::SquareClose => return loc_error("Unexpected ] in module", &loc),
+                Symbol::Colon
+                | Symbol::ParenClose
+                | Symbol::ParenOpen
+                | Symbol::SquareClose
+                | Symbol::CurlyClose => return unexpected_symbol(s, loc.start),
                 Symbol::CurlyOpen => module
                     .body
                     .terms
                     .push(Term::Branch(parse_branch(tokens, &loc.start)?)),
-                Symbol::CurlyClose => return loc_error("Unexpected } in module", &loc),
                 Symbol::SquareOpen => module
                     .body
                     .terms
@@ -406,15 +440,6 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
     }
 
     Ok(module)
-}
-
-#[derive(Debug)]
-pub enum ParseError {
-    Tokenization(TokenizeError),
-    UnclosedExpression(&'static str, SourceLocation),
-    UnexpectedEnd(&'static str),
-    Location(&'static str, SourceLocation),
-    Range(&'static str, SourceRange),
 }
 
 pub fn parse(source: &str) -> ParseResult<Module> {

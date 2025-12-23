@@ -13,10 +13,10 @@ use crate::{
     interpreter::{BacktraceItem, Interpreter, InterpreterError, InterpreterSnapshot},
     intrinsics::{IntrinsicData, get_intrinsics},
     lang::{ImportLocation, ImportNaming, Module, Term},
-    parser::{ParseError, parse},
+    parse_error::ParseError,
+    parser::parse,
     path::CanonicalPathBuf,
     program::{NamespaceId, NamespaceImport, Program},
-    tokenizer::TokenizeError,
 };
 
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
@@ -65,30 +65,6 @@ fn stringify_absolute_path(path: Option<&Path>) -> String {
     };
 
     stripped.display().to_string()
-}
-
-fn parse_error_to_cow(path: Option<&Path>, value: &ParseError) -> Cow<'static, str> {
-    let file = stringify_absolute_path(path);
-    match value {
-        ParseError::Tokenization(TokenizeError::UnboundedString(loc)) => {
-            Cow::<str>::from(format!("{file}:{:?}: Unclosed string literal", loc))
-        }
-        ParseError::Tokenization(TokenizeError::UnboundedComment(loc)) => {
-            Cow::<str>::from(format!("{file}:{:?}: Unclosed range comment", loc))
-        }
-        ParseError::Tokenization(TokenizeError::InvalidStringEscape(loc, c)) => {
-            Cow::<str>::from(format!(
-                "{file}:{:?}: Invalid character in escape sequence: {c:?}",
-                loc
-            ))
-        }
-        ParseError::Location(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
-        ParseError::Range(e, loc) => Cow::<str>::from(format!("{file}:{:?}: {}", loc, e)),
-        ParseError::UnclosedExpression(e, loc) => {
-            Cow::<str>::from(format!("{file}:{:?}: {}", loc, e))
-        }
-        ParseError::UnexpectedEnd(e) => Cow::<str>::from(format!("{file}: {}", e)),
-    }
 }
 
 impl Repl {
@@ -144,7 +120,8 @@ impl Repl {
         self.loaded_paths.insert(path.clone(), id);
 
         let source = std::fs::read_to_string(path).map_err(|_| "Failed to read file")?;
-        let ast = parse(&source).map_err(|e| parse_error_to_cow(Some(path.as_path()), &e))?;
+        let ast = parse(&source)
+            .map_err(|e| Self::try_stringify_parse_error(Some(path.as_path()), e, &source))?;
         let Some(context) = path.as_path().parent() else {
             return Err("Unable to resolve file path context".into());
         };
@@ -164,19 +141,13 @@ impl Repl {
         std::mem::swap(&mut full_source, &mut self.pending_code);
         let ast = match parse(&full_source) {
             Ok(e) => e,
-            Err(e) => match e {
-                ParseError::UnexpectedEnd(_)
-                | ParseError::UnclosedExpression(..)
-                | ParseError::Tokenization(
-                    TokenizeError::UnboundedString(_) | TokenizeError::UnboundedComment(_),
-                ) => {
+            Err(e) => {
+                if e.is_early_eof() {
                     std::mem::swap(&mut full_source, &mut self.pending_code);
                     return Ok(());
                 }
-                e @ (ParseError::Tokenization(TokenizeError::InvalidStringEscape(..))
-                | ParseError::Location(..)
-                | ParseError::Range(..)) => return Err(parse_error_to_cow(None, &e)),
-            },
+                return Err(Self::try_stringify_parse_error(None, e, &full_source));
+            }
         };
         self.prepare_code(&ast, id, base.as_path())?;
         self.consume_ast(id, &ast)
@@ -388,5 +359,70 @@ impl Repl {
         }
 
         Ok(res.into())
+    }
+
+    fn try_stringify_parse_error(
+        path: Option<&Path>,
+        err: ParseError,
+        source_code: &str,
+    ) -> ReplError {
+        match Self::stringify_parse_error(path, err, source_code) {
+            Ok(e) => e.into(),
+            Err(e) => e.to_string().into(),
+        }
+    }
+
+    fn stringify_parse_error(
+        path: Option<&Path>,
+        err: ParseError,
+        source_code: &str,
+    ) -> Result<String, std::fmt::Error> {
+        let mut res_owned = String::with_capacity(1000);
+        let line_number_width = 6;
+
+        {
+            let res = &mut res_owned;
+
+            res.push_str("\n╒═════════════════════════════ Syntax Error \n");
+
+            let (message, loc, info) = err.into_details();
+
+            writeln!(res, "│\n│   {message}\n│")?;
+
+            if let Some(file) = path.map(|e| stringify_absolute_path(Some(e))) {
+                writeln!(res, "@ {file}:{:?}\n│", loc.end)?;
+            }
+
+            if loc.start.line == loc.end.line {
+                if let Some(line) = loc.start.extract(source_code) {
+                    writeln!(
+                        res,
+                        "└─{0:─>line_number_width$}───{0:─>1$}┐",
+                        "", loc.end.column
+                    )?;
+                    writeln!(
+                        res,
+                        "  {: >line_number_width$} │ {}\n",
+                        loc.start.line + 1,
+                        line
+                    )?;
+                }
+            } else {
+                for (number, line) in loc.extract(source_code) {
+                    writeln!(res, "│ {: >line_number_width$} │ {}", number + 1, line)?;
+                }
+                writeln!(
+                    res,
+                    "└─{0:─>line_number_width$}───{0:─>1$}┘\n",
+                    "", loc.end.column
+                )?;
+            }
+
+            if let Some(info) = info {
+                writeln!(res, "    INFO: {info}")?;
+            }
+        }
+
+        Ok(res_owned)
     }
 }
