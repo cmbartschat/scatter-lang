@@ -25,13 +25,29 @@ pub struct Analysis<'a> {
     pub program: &'a Program,
 }
 
-fn block_is_always_truthy(b: &Block) -> Option<bool> {
-    match (b.terms.len(), b.terms.first()) {
-        (1, Some(Term::String(t))) => Some(t.len() > 1),
-        (1, Some(Term::Number(t))) => Some(!t.is_nan() && *t != 0f64),
-        (1, Some(Term::Bool(true))) => Some(true),
-        (1, Some(Term::Bool(false))) => Some(false),
-        _ => None,
+enum BlockTruthiness {
+    AlwaysTruthy,
+    AlwaysFalsy,
+    Unknown,
+}
+
+fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
+    let Some(last) = b.terms.last() else {
+        return BlockTruthiness::Unknown;
+    };
+
+    let is_truthy: bool = match last {
+        Term::String(t) => !t.is_empty(),
+        Term::Number(t) => !t.is_nan() && *t != 0f64,
+        Term::Bool(true) | Term::Address(_) => true,
+        Term::Bool(false) => false,
+        Term::Name(_, _) | Term::Branch(_) | Term::Loop(_) => return BlockTruthiness::Unknown,
+    };
+
+    if is_truthy {
+        BlockTruthiness::AlwaysTruthy
+    } else {
+        BlockTruthiness::AlwaysFalsy
     }
 }
 
@@ -95,9 +111,9 @@ fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
         running.serial(&condition_arity);
 
         let (possible, last_arm) = match block_is_always_truthy(&arm.0) {
-            Some(true) => (true, true),
-            Some(false) => (false, false),
-            None => (true, false),
+            BlockTruthiness::AlwaysTruthy => (true, true),
+            BlockTruthiness::AlwaysFalsy => (false, false),
+            BlockTruthiness::Unknown => (true, false),
         };
 
         if possible {

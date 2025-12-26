@@ -192,6 +192,51 @@ fn: {
     }
 
     #[test]
+    fn branch_11() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    ("") 1
+    (0 1) "string"
+    (1) 1 1 1
+  }
+}"#,
+            "- n s",
+        );
+    }
+
+    #[test]
+    fn branch_12() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    ("") 1
+    ("a") 1 1
+    (1) 1 1 1
+  }
+}"#,
+            "- n n",
+        );
+    }
+
+    #[test]
+    fn branch_13() {
+        assert_fn_arity(
+            r#"
+fn: {
+  {
+    ("") 1
+    (true) 1 1
+    (1) 1 1 1
+  }
+}"#,
+            "- n n",
+        );
+    }
+
+    #[test]
     fn loop_1() {
         assert_fn_arity("fn: {[(dup) 1 -]}", "n - n");
     }
@@ -400,6 +445,58 @@ fn: {
 }
      "#,
             "n u - n s",
+        );
+    }
+
+    #[test]
+    fn unresolved_1() {
+        assert_fn_unset(
+            r"
+fn: {
+  1
+  fn
+  drop
+}
+     ",
+        );
+    }
+
+    #[test]
+    fn unresolved_2() {
+        assert_fn_unset(
+            r"
+fn1: fn
+
+fn: {
+  1
+  fn1
+  +
+}
+     ",
+        );
+    }
+
+    #[test]
+    fn unresolved_3() {
+        assert_fn_unset(
+            r"
+fn1: fn1
+
+fn: {
+  [(fn1) print]
+}
+     ",
+        );
+    }
+
+    #[test]
+    fn unresolved_4() {
+        assert_fn_unset(
+            r"
+fn: {
+  [(fn1) print]
+}
+     ",
         );
     }
 }
