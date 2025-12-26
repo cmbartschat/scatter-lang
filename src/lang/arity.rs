@@ -382,6 +382,15 @@ impl std::fmt::Debug for Arity {
     }
 }
 
+impl From<(Vec<Type>, Vec<Type>)> for Arity {
+    fn from(value: (Vec<Type>, Vec<Type>)) -> Self {
+        Self {
+            pops: value.0,
+            pushes: value.1.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lang::{Arity, Type};

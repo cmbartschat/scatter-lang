@@ -242,7 +242,7 @@ fn get_intrinsic_data() -> IntrinsicsData {
         ("drop", Arity::in_out(1, 0), drop),
         ("print", Arity::in_out(1, 0), print),
         ("readline", Arity::push_two(S, B), readline),
-        ("substring", Arity::binary(N, N, S).with_pop(S), substring),
+        ("substring", (vec![N, N, S], vec![S]).into(), substring),
         ("to_char", Arity::unary(S, N), to_char),
         ("from_char", Arity::unary(N, S), from_char),
         ("index", Arity::binary(S, S, N), string_index),

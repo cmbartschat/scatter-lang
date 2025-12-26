@@ -237,6 +237,50 @@ fn: {
     }
 
     #[test]
+    fn branch_14() {
+        assert_fn_err(
+            r"
+fn: {
+  {
+    () 0 0 substring
+    (1) 0 +
+  }
+}",
+            AnalysisError::IncompatibleTypes,
+        );
+    }
+
+    #[test]
+    fn branch_15() {
+        assert_fn_unset(
+            r"
+fn1: fn1
+fn: {
+  {
+    () 0 0 substring
+    (1) fn1 0 +
+  }
+}",
+        );
+    }
+
+    #[test]
+    fn branch_16() {
+        assert_fn_arity(
+            r"
+fn1: 3
+
+fn: {
+  {
+    (false) substring
+    (@fn1) fn1 0 +
+  }
+}",
+            "- n",
+        );
+    }
+
+    #[test]
     fn loop_1() {
         assert_fn_arity("fn: {[(dup) 1 -]}", "n - n");
     }
@@ -497,6 +541,36 @@ fn: {
   [(fn1) print]
 }
      ",
+        );
+    }
+
+    #[test]
+    fn intrinsic_1() {
+        assert_fn_arity(
+            r"
+fn: substring
+     ",
+            "s n n - s",
+        );
+    }
+
+    #[test]
+    fn intrinsic_2() {
+        assert_fn_arity(
+            r"
+fn: 3 substring
+     ",
+            "s n - s",
+        );
+    }
+
+    #[test]
+    fn intrinsic_3() {
+        assert_fn_arity(
+            r"
+fn: 0 3 substring
+     ",
+            "s - s",
         );
     }
 }
