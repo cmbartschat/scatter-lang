@@ -1,6 +1,6 @@
 use crate::{
     convert::hex_char_to_u8,
-    lang::{ParsedToken, SourceLocation, Symbol, Token},
+    lang::{ParsedToken, SourceCrawler, SourceLocation, SourcePositions, Symbol, Token},
 };
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -165,32 +165,6 @@ struct NormalParseState {
     word: String,
 }
 
-#[derive(Clone)]
-struct SourcePositions {
-    prev: Option<SourceLocation>,
-    current: SourceLocation,
-    next: Option<SourceLocation>,
-}
-
-impl SourcePositions {
-    pub fn start(first_char: char) -> Self {
-        Self {
-            prev: None,
-            current: SourceLocation::start(),
-            next: Some(SourceLocation::start().add(first_char)),
-        }
-    }
-    pub fn next(self, c: char) -> Self {
-        Self {
-            prev: Some(self.current),
-            current: self
-                .next
-                .expect("Must have next if we're getting another char"),
-            next: self.next.map(|f| f.add(c)),
-        }
-    }
-}
-
 impl NormalParseState {
     pub fn take(&mut self) -> Option<Token> {
         if self.word.is_empty() {
@@ -315,13 +289,13 @@ impl ParseState {
     pub fn finish(
         self,
         tokens: &mut Vec<ParsedToken>,
-        loc: Option<SourcePositions>,
+        loc: SourceLocation,
     ) -> Result<(), TokenizeError> {
         match self {
             ParseState::LineComment => Ok(()),
             ParseState::String(s) => Err(TokenizeError::UnboundedString(s.start)),
             ParseState::Normal(mut s) => {
-                s.finish(tokens, loc.map(|f| f.current));
+                s.finish(tokens, Some(loc));
                 Ok(())
             }
             ParseState::RangeComment(s) => Err(TokenizeError::UnboundedComment(s.start)),
@@ -348,7 +322,7 @@ impl ParseState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenizeError {
     UnboundedString(SourceLocation),
     InvalidStringEscapeChar(SourceLocation),
@@ -357,32 +331,27 @@ pub enum TokenizeError {
 }
 
 pub fn tokenize(source: &str) -> Result<Vec<ParsedToken>, TokenizeError> {
-    let mut tokens: Vec<ParsedToken> = vec![];
-    if source.is_empty() {
-        return Ok(tokens);
-    }
-    let mut chars = source.chars().peekable();
+    let Some(mut iter) = SourceCrawler::new(source) else {
+        return Ok(vec![]);
+    };
+
     let mut state = if source.starts_with("#!") {
         ParseState::LineComment
     } else {
         ParseState::normal(SourceLocation::start())
     };
 
-    let mut saved_loc: Option<SourcePositions> = None;
-    while let Some(char) = chars.next() {
-        let loc = match saved_loc {
-            Some(l) => l.next(char),
-            None => SourcePositions::start(char),
-        };
-        match state.next(&mut tokens, char, chars.peek().copied(), &loc) {
+    let mut tokens: Vec<ParsedToken> = vec![];
+
+    for (char, next, loc) in &mut iter {
+        state = match state.next(&mut tokens, char, next, &loc) {
             Ok(None) => return Ok(tokens),
-            Ok(Some(s)) => state = s,
+            Ok(Some(s)) => s,
             Err(e) => return Err(e),
         }
-        saved_loc = Some(loc);
     }
 
-    state.finish(&mut tokens, saved_loc)?;
+    state.finish(&mut tokens, iter.last_seen_location())?;
 
     Ok(tokens)
 }
