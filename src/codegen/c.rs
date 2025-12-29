@@ -101,12 +101,14 @@ fn forward_declare_func(ctx: &mut CodegenContext, func: &Function) {
     ));
 }
 
-pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) {
+pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) -> String {
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
         target: CodegenTarget::default(),
     };
+
+    ctx.target.write_line(DEFS);
 
     for (id, ast) in program.namespaces.iter().enumerate() {
         ctx.namespace = id;
@@ -126,15 +128,13 @@ pub fn c_codegen_module(program: &Program, main_namespace: NamespaceId, main: &B
     ctx.namespace = main_namespace;
     codegen_func(&mut ctx, "main_body", main);
 
-    {
-        #![expect(clippy::print_stdout, reason = "code generation")]
-        println!(
-            "{DEFS}{}
-int main(void) {{
+    ctx.target.write_line(
+        "
+int main(void) {
   checked(main_body());
   checked(print_stack());
-}}",
-            ctx.target.into_string()
-        );
-    }
+}",
+    );
+
+    ctx.target.into_string()
 }

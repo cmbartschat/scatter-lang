@@ -157,11 +157,15 @@ impl Repl {
 
     fn consume_ast(&mut self, namespace: NamespaceId, ast: &Module) -> ReplResult<()> {
         if let Some(lang) = &self.args.generate {
-            match lang.as_str() {
+            let str = match lang.as_str() {
                 "c" => c_codegen_module(&self.program, namespace, &ast.body),
                 "js" => js_codegen_module(&self.program, namespace, &ast.body),
                 "rs" => rs_codegen_module(&self.program, namespace, &ast.body),
                 _ => return Err("Expected 'c', 'js', or 'rs' for generation mode".into()),
+            };
+            {
+                #![expect(clippy::print_stdout, reason = "codegen output")]
+                println!("{str}");
             }
             return Ok(());
         }

@@ -74,23 +74,12 @@ fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
     ctx.target.write_line("}");
 }
 
-pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) {
+pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) -> String {
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
         target: CodegenTarget::default(),
     };
-
-    for (id, ast) in program.namespaces.iter().enumerate() {
-        ctx.namespace = id;
-        for func in ast.functions.values() {
-            let name = &ctx.get_scoped_name(&func.name);
-            codegen_func(&mut ctx, name, &func.body);
-        }
-    }
-
-    ctx.namespace = main_namespace;
-    codegen_func(&mut ctx, "main_body", main);
 
     let definitions = {
         let definition_start = INTERPRETER
@@ -108,6 +97,19 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
                 .replace("'a", "'static"),
         )
     };
+
+    ctx.target.write_line(&definitions);
+
+    for (id, ast) in program.namespaces.iter().enumerate() {
+        ctx.namespace = id;
+        for func in ast.functions.values() {
+            let name = &ctx.get_scoped_name(&func.name);
+            codegen_func(&mut ctx, name, &func.body);
+        }
+    }
+
+    ctx.namespace = main_namespace;
+    codegen_func(&mut ctx, "main_body", main);
 
     let intrinsics = {
         let definition_start = INTRINSICS
@@ -136,17 +138,19 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
         })
         .collect::<Vec<_>>()
         .join("\n");
-    {
-        #![expect(clippy::print_stdout, reason = "code generation")]
-        println!(
-            "{definitions}\n{libs}\n{intrinsics}{}
-fn main() -> InterpreterResult {{
+
+    ctx.target.write_line(&libs);
+    ctx.target.write_line(intrinsics);
+
+    ctx.target.write_line(
+        r"
+fn main() -> InterpreterResult {
   let mut c = Interpreter::new();
   main_body(&mut c)?;
   c.print()?;
   Ok(())
-}}",
-            ctx.target.into_string()
-        );
-    }
+}",
+    );
+
+    ctx.target.into_string()
 }

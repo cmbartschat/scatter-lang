@@ -69,12 +69,14 @@ fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
     ctx.target.write_line("}");
 }
 
-pub fn js_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) {
+pub fn js_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) -> String {
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
         target: CodegenTarget::default(),
     };
+
+    ctx.target.write_line(DEFS);
 
     for (id, ast) in program.namespaces.iter().enumerate() {
         ctx.namespace = id;
@@ -87,17 +89,14 @@ pub fn js_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
     ctx.namespace = main_namespace;
     codegen_func(&mut ctx, "main_body", main);
 
-    {
-        #![expect(clippy::print_stdout, reason = "code generation")]
-        println!(
-            "{DEFS}{}
-try {{
+    ctx.target.write_line(
+        "try {
   main_body()
   printStack()
-}} catch (err) {{
+} catch (err) {
    console.error(err)
-}}",
-            ctx.target.into_string()
-        );
-    }
+}",
+    );
+
+    ctx.target.into_string()
 }
