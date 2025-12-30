@@ -178,18 +178,6 @@ impl Arity {
         Self::noop().with_pop(a).with_pop(b).with_push(r)
     }
 
-    pub fn in_out(pop_count: usize, push_count: usize) -> Self {
-        let mut r = Self::noop();
-        for _ in 0..pop_count {
-            r.pop(Type::Unknown);
-        }
-
-        for _ in 0..push_count {
-            r.push(Type::Unknown);
-        }
-        r
-    }
-
     pub fn generic_1<T>(pop_count: usize, res1: T) -> Self
     where
         T: Into<MultiIndex>,

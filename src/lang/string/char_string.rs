@@ -74,14 +74,6 @@ impl Index<usize> for CharString<'_> {
     }
 }
 
-impl Index<Range<usize>> for CharString<'_> {
-    type Output = [char];
-
-    fn index(&self, index: Range<usize>) -> &Self::Output {
-        &self.source[index]
-    }
-}
-
 impl From<CharString<'_>> for String {
     fn from(value: CharString<'_>) -> Self {
         let mut res = String::with_capacity(value.len());
