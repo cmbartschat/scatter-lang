@@ -189,8 +189,7 @@ impl Repl {
         } else {
             let mut snap = InterpreterSnapshot::default();
             std::mem::swap(&mut snap, &mut self.snapshot);
-            let mut interpreter = Interpreter::from_snapshot(snap, &self.program);
-            interpreter.enable_stdin();
+            let interpreter = Interpreter::from_snapshot(snap, &self.program);
             self.snapshot = interpreter
                 .execute(&ast.body)
                 .map_err(|e| self.try_stringify_backtrace(e.0, &e.1))?;

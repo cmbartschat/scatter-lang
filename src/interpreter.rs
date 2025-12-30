@@ -22,10 +22,10 @@ pub struct Interpreter<'a> {
     pub namespace_stack: Vec<NamespaceId>,
     pub backtrace: Vec<BacktraceItem<'a>>,
     pub program: &'a Program,
-    input: Option<StdinLock<'static>>,
+    input: StdinLock<'static>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct InterpreterSnapshot {
     pub stack: Vec<OwnedValue>,
 }
@@ -42,7 +42,7 @@ impl<'a> Interpreter<'a> {
             namespace_stack: vec![],
             program,
             backtrace: Vec::with_capacity(64),
-            input: Some(std::io::stdin().lock()),
+            input: std::io::stdin().lock(),
         }
     }
 
@@ -65,27 +65,19 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    pub fn enable_stdin(&mut self) {
-        if self.input.is_none() {
-            self.input = Some(std::io::stdin().lock());
-        }
-    }
-
     pub fn readline(&mut self) -> InterpreterValueResult<Option<String>> {
-        match &mut self.input {
-            Some(e) => {
-                let mut line = String::new();
-                let bytes_written = e.read_line(&mut line).map_err(|_| "read_line failed")?;
-                if bytes_written == 0 {
-                    return Ok(None);
-                }
-                if line.ends_with('\n') {
-                    line.pop();
-                }
-                Ok(Some(line))
-            }
-            None => Err("Cannot read line while stdin is not attached".into()),
+        let mut line = String::new();
+        let bytes_written = self
+            .input
+            .read_line(&mut line)
+            .map_err(|_| "read_line failed")?;
+        if bytes_written == 0 {
+            return Ok(None);
         }
+        if line.ends_with('\n') {
+            line.pop();
+        }
+        Ok(Some(line))
     }
 
     // Codegen Interpreter Start
