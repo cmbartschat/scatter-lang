@@ -162,7 +162,7 @@ impl Repl {
                 "js" => js_codegen_module(&self.program, namespace, &ast.body),
                 "rs" => rs_codegen_module(&self.program, namespace, &ast.body),
                 _ => return Err("Expected 'c', 'js', or 'rs' for generation mode".into()),
-            };
+            }?;
             {
                 #![expect(clippy::print_stdout, reason = "codegen output")]
                 println!("{str}");

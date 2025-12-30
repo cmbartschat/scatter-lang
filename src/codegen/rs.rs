@@ -1,5 +1,8 @@
 use crate::{
-    codegen::{context::CodegenContext, target::CodegenTarget},
+    codegen::{
+        context::{CodegenContext, CodegenResult, CodegenResultG},
+        target::CodegenTarget,
+    },
     lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -8,24 +11,26 @@ static DEFS: &str = include_str!("./rs-defs.rs");
 static INTRINSICS: &str = include_str!("../intrinsics.rs");
 static INTERPRETER: &str = include_str!("../interpreter.rs");
 
-fn codegen_loop_condition(ctx: &mut CodegenContext, block: Option<&Block>) {
+fn codegen_loop_condition(ctx: &mut CodegenContext, block: Option<&Block>) -> CodegenResult {
     if let Some(e) = block {
-        codegen_block(ctx, e);
+        codegen_block(ctx, e)?;
         ctx.target.write_line("if !c.check_condition()? { break }");
     }
+    Ok(())
 }
 
-fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) {
+fn codegen_loop(ctx: &mut CodegenContext, loop_t: &Loop) -> CodegenResult {
     ctx.target.write_line("loop {");
     ctx.target.increase_indent();
-    codegen_loop_condition(ctx, loop_t.pre_condition.as_ref());
-    codegen_block(ctx, &loop_t.body);
-    codegen_loop_condition(ctx, loop_t.post_condition.as_ref());
+    codegen_loop_condition(ctx, loop_t.pre_condition.as_ref())?;
+    codegen_block(ctx, &loop_t.body)?;
+    codegen_loop_condition(ctx, loop_t.post_condition.as_ref())?;
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
+    Ok(())
 }
 
-fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
+fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
     match term {
         Term::String(e) => ctx.target.write_line(&format!("c.push({:?})?;", e)),
         Term::Number(e) => ctx.target.write_line(&format!("c.push({}f64)?;", e)),
@@ -33,48 +38,55 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) {
         Term::Bool(false) => ctx.target.write_line("c.push(false)?;"),
         Term::Address(a) => ctx.target.write_line(&format!(
             "c.push(&({} as Operation))?;",
-            ctx.resolve_name_reference(a)
+            ctx.resolve_name(a)?
         )),
         Term::Name(n, _) => ctx
             .target
-            .write_line(&format!("{}(c)?;", ctx.resolve_name_reference(n))),
+            .write_line(&format!("{}(c)?;", ctx.resolve_name(n)?)),
         Term::Branch(branch) => {
-            branch.arms.iter().for_each(|arm| {
-                codegen_block(ctx, &arm.0);
+            branch.arms.iter().try_for_each(|arm| -> CodegenResult {
+                codegen_block(ctx, &arm.0)?;
                 ctx.target.write_line("if c.check_condition()? {");
                 ctx.target.increase_indent();
-                codegen_block(ctx, &arm.1);
+                codegen_block(ctx, &arm.1)?;
                 ctx.target.decrease_indent();
                 ctx.target.write_line("} else {");
                 ctx.target.increase_indent();
-            });
+                Ok(())
+            })?;
 
             branch.arms.iter().for_each(|_| {
                 ctx.target.decrease_indent();
                 ctx.target.write_line("}");
             });
         }
-        Term::Loop(loop_t) => codegen_loop(ctx, loop_t),
+        Term::Loop(loop_t) => codegen_loop(ctx, loop_t)?,
     }
+    Ok(())
 }
 
-fn codegen_block(ctx: &mut CodegenContext, block: &Block) {
-    block.terms.iter().for_each(|t| codegen_term(ctx, t));
+fn codegen_block(ctx: &mut CodegenContext, block: &Block) -> CodegenResult {
+    block.terms.iter().try_for_each(|t| codegen_term(ctx, t))
 }
 
-fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) {
+fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) -> CodegenResult {
     ctx.target.write_line(&format!(
         "fn {}(c: &mut Interpreter) -> InterpreterResult {{",
         name
     ));
     ctx.target.increase_indent();
-    codegen_block(ctx, body);
+    codegen_block(ctx, body)?;
     ctx.target.write_line("Ok(())");
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
+    Ok(())
 }
 
-pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &Block) -> String {
+pub fn rs_codegen_module(
+    program: &Program,
+    main_namespace: NamespaceId,
+    main: &Block,
+) -> CodegenResultG<String> {
     let mut ctx = CodegenContext {
         namespace: 0,
         program,
@@ -104,12 +116,12 @@ pub fn rs_codegen_module(program: &Program, main_namespace: NamespaceId, main: &
         ctx.namespace = id;
         for func in ast.functions.values() {
             let name = &ctx.get_scoped_name(&func.name);
-            codegen_func(&mut ctx, name, &func.body);
+            codegen_func(&mut ctx, name, &func.body)?;
         }
     }
 
     ctx.namespace = main_namespace;
-    codegen_func(&mut ctx, "main_body", main);
+    codegen_func(&mut ctx, "main_body", main)?;
 
     let intrinsics = {
         let definition_start = INTRINSICS
@@ -152,5 +164,5 @@ fn main() -> InterpreterResult {
 }",
     );
 
-    ctx.target.into_string()
+    Ok(ctx.target.into_string())
 }
