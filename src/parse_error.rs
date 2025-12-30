@@ -5,7 +5,7 @@ use crate::{
     tokenizer::TokenizeError,
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum WrappedExpression {
     Condition,
     Branch,
@@ -14,14 +14,14 @@ pub enum WrappedExpression {
     ImportNameList,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParseSection {
     Condition,
     Branch,
     Loop,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ReasonExpectingMore {
     Address,
     Branch,
@@ -29,13 +29,13 @@ pub enum ReasonExpectingMore {
     ImportPath,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EndOfFileError {
     UnclosedExpression(WrappedExpression, SourceLocation),
     ExpectedMoreAfter(ReasonExpectingMore, SourceLocation),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnexpectedContext {
     FirstInBranch,
     Address,
@@ -45,7 +45,7 @@ pub enum UnexpectedContext {
     ImportPath,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnexpectedError {
     InContext {
         context: UnexpectedContext,
@@ -61,7 +61,7 @@ pub enum UnexpectedError {
     GeneralSymbol(Symbol, SourceLocation),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParseError {
     Tokenization(TokenizeError),
     EndOfFile(EndOfFileError),
