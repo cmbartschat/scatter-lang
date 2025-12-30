@@ -46,6 +46,7 @@ mod tests {
         assert_eq!(f64_to_char(-10.), None);
         assert_eq!(f64_to_char(1.5), None);
         assert_eq!(f64_to_char(1e53), None);
+        assert_eq!(f64_to_char(1e15), None);
         assert_eq!(f64_to_char(f64::NAN), None);
         assert_eq!(f64_to_char(f64::NEG_INFINITY), None);
         assert_eq!(f64_to_char(1114112.), None);

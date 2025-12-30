@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
 
-    use crate::analyze::{AnalysisError, NamespaceArities, analyze_program};
+    use crate::analyze::{
+        AnalysisError, NamespaceArities, analyze_block_in_namespace, analyze_program,
+    };
 
     use crate::lang::Module;
     use crate::parser::parse;
-    use crate::program::Program;
+    use crate::program::{NamespaceImport, Program};
 
     struct SimpleAnalysis {
         arities: NamespaceArities,
@@ -277,6 +279,57 @@ fn: {
   }
 }",
             "- n",
+        );
+    }
+
+    #[test]
+    fn branch_17() {
+        assert_fn_err(
+            r"
+fn1: 3
+
+fn: {
+  {
+    () to_char
+    (1) from_char
+  }
+}",
+            AnalysisError::IncompatibleTypes,
+        );
+    }
+
+    #[test]
+    fn branch_18() {
+        assert_fn_err(
+            r"
+fn1: 3
+
+fn: {
+  {
+    () print
+    () to_char
+    (1) from_char
+  }
+}",
+            AnalysisError::IncompatibleTypes,
+        );
+    }
+
+    #[test]
+    fn branch_19() {
+        assert_fn_err(
+            r"
+fn1: 3
+
+fn: {
+  {
+    (dup) to_char
+    (dup) to_char
+    (dup) from_char
+    (1) from_char
+  }
+}",
+            AnalysisError::IncompatibleTypes,
         );
     }
 
@@ -572,5 +625,50 @@ fn: 0 3 substring
      ",
             "s - s",
         );
+    }
+
+    fn get_multi_namespace_sample() -> Program {
+        let mut program = Program::new();
+        let helpers = program.allocate_namespace();
+        program.add_functions(
+            helpers,
+            &parse(
+                r#"
+fn: 0 3 substring
+fn2: "fn2"
+     "#,
+            )
+            .unwrap()
+            .functions,
+        );
+
+        let other = program.allocate_namespace();
+        program.add_imports(
+            other,
+            vec![NamespaceImport {
+                id: helpers,
+                naming: crate::lang::ImportNaming::Named(vec!["fn".into()]),
+            }],
+        );
+
+        program
+    }
+
+    #[test]
+    fn check_body_1() {
+        let program = get_multi_namespace_sample();
+        let analysis = analyze_program(&program);
+        let ast = parse("'hi' fn").unwrap();
+        let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program).unwrap();
+        assert_eq!(&actual.stringify(), "- s");
+    }
+
+    #[test]
+    fn check_body_2() {
+        let program = get_multi_namespace_sample();
+        let analysis = analyze_program(&program);
+        let ast = parse("'hi' fn2").unwrap();
+        let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program);
+        assert_eq!(&actual, &Err(AnalysisError::Pending));
     }
 }

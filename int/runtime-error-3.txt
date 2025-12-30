@@ -1,0 +1,9 @@
+
+STDIN
+# * "test"
+STDOUT
+STDERR
+Invalid import: test
+
+EXIT_CODE
+1

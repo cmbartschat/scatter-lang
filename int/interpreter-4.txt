@@ -1,0 +1,18 @@
+
+STDIN
+3
+[
+  dup print
+  --
+  (dup)
+]
+print
+STDOUT
+3
+2
+1
+0
+
+STDERR
+EXIT_CODE
+0

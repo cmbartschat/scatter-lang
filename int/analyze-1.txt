@@ -1,0 +1,24 @@
+-a
+examples/e2e.sl
+STDIN
+STDOUT
+square: n - n
+add_ten: n - n
+double: n - n
+sqrt: n - n
+distance: n n n n - n
+check_even: n - s
+grade: n - s
+sign: n - s
+countdown: unbounded
+factorial: n - n
+fibonacci: n - n
+constant: - n
+double_increment: n - n
+noop: -
+multiline_comment_single: - n
+<body>: unbounded
+
+STDERR
+EXIT_CODE
+0

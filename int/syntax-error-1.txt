@@ -1,0 +1,20 @@
+
+STDIN
+3
+[())
+3 *
+9 == print
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Unexpected ) in loop
+│
+└─────────────┐
+       1 │ [())
+
+
+
+EXIT_CODE
+1

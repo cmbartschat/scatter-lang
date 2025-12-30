@@ -1,15 +1,15 @@
 #[cfg(test)]
 mod tests {
+    use crate::codegen;
     use crate::intrinsics::{IntrinsicData, get_intrinsic_codegen_name, get_intrinsics};
-    use crate::lang::ImportNaming;
+    use crate::lang::{ImportNaming, Module};
     use crate::program::{NamespaceImport, Program};
     use crate::{interpreter::Interpreter, parser::parse};
 
     static TEST_HELPERS: &str = include_str!("../examples/test.sl");
     static E2E_TESTS: &str = include_str!("../examples/e2e.sl");
 
-    #[test]
-    fn e2e() {
+    fn get_e2e_program() -> (Module, Program) {
         let helpers_ast = parse(TEST_HELPERS).unwrap();
         let ast = parse(E2E_TESTS).unwrap();
         let mut program = Program::new_from_module(&ast);
@@ -22,7 +22,12 @@ mod tests {
                 naming: ImportNaming::Wildcard,
             }],
         );
+        (ast, program)
+    }
 
+    #[test]
+    fn e2e() {
+        let (ast, program) = get_e2e_program();
         let ctx = Interpreter::begin(&program);
         assert_eq!(ctx.execute(&ast.body).unwrap().stack, vec![]);
     }
@@ -56,6 +61,36 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn codegen_rs_test() {
+        let (ast, program) = get_e2e_program();
+        assert!(
+            500 < codegen::rs::rs_codegen_module(&program, 0, &ast.body)
+                .unwrap()
+                .len()
+        );
+    }
+
+    #[test]
+    fn codegen_js_test() {
+        let (ast, program) = get_e2e_program();
+        assert!(
+            500 < codegen::js::js_codegen_module(&program, 0, &ast.body)
+                .unwrap()
+                .len()
+        );
+    }
+
+    #[test]
+    fn codegen_c_test() {
+        let (ast, program) = get_e2e_program();
+        assert!(
+            500 < codegen::c::c_codegen_module(&program, 0, &ast.body)
+                .unwrap()
+                .len()
+        );
     }
 
     #[test]

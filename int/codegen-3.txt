@@ -1,0 +1,9 @@
+-g
+c
+STDIN
+STDOUT
+STDERR
+Expected exactly one file provided when generating
+
+EXIT_CODE
+1

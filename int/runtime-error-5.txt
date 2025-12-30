@@ -1,0 +1,15 @@
+
+STDIN
+0 to_char
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Expected string on top of stack
+│
+└─ at:  to_char     input:1:3
+
+
+EXIT_CODE
+1

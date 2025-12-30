@@ -1,0 +1,46 @@
+
+STDIN
+fn: 3 +
+list
+exit
+STDOUT
+Available functions:
+  fn
+Intrinsics:
+  +
+  -
+  *
+  /
+  %
+  **
+  ||
+  &&
+  swap
+  dup
+  over
+  rot
+  drop
+  print
+  readline
+  substring
+  to_char
+  from_char
+  index
+  join
+  length
+  assert
+  eval
+  >
+  <
+  !
+  --
+  ++
+  ==
+REPL commands:
+  exit
+  list
+  clear
+
+STDERR
+EXIT_CODE
+0

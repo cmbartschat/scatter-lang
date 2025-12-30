@@ -1,0 +1,11 @@
+
+STDIN
+readline readline
+my input
+
+STDOUT
+["my input", true, "", false]
+
+STDERR
+EXIT_CODE
+0

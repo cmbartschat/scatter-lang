@@ -1,0 +1,20 @@
+
+STDIN
+# * "./README.md"
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Invalid import path
+│
+@ README.md:1:12
+│
+└─────────────────────┐
+       1 │ # Stacklang
+
+    INFO: The second expression after # must be a relative path like: # file1 "./file1.sl"
+
+
+EXIT_CODE
+1

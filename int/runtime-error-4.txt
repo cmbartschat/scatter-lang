@@ -1,0 +1,15 @@
+
+STDIN
+" " ++
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Expected number on top of stack
+│
+└─ at:  ++     input:1:5
+
+
+EXIT_CODE
+1

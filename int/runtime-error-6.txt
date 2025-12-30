@@ -1,0 +1,15 @@
+
+STDIN
+not_real
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Unknown function name: not_real
+│
+└─ at:  not_real     input:1:1
+
+
+EXIT_CODE
+1

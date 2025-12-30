@@ -1,0 +1,15 @@
+
+STDIN
+@+ "hi" 0 false
+@+ "hi" 0 false
+print print print print
+STDOUT
+false
+0
+hi
+Fn[0, +]
+[Fn[0, +], "hi", 0, false]
+
+STDERR
+EXIT_CODE
+0

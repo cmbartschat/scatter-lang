@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use crate::interpreter::Interpreter;
     use crate::lang::{
         Block, Branch, Function, ImportNaming, Loop, Module, OwnedValue, SourceLocation,
@@ -307,5 +309,41 @@ mod tests {
         let interpreter = Interpreter::begin(&program);
         let result = interpreter.execute(&main.body).unwrap().stack;
         assert_eq!(result, vec![1.into(), 2.into(), 3.into()]);
+    }
+
+    #[test]
+    fn runtime_error() {
+        let ast = parse(
+            r"
+fn: {
+    substring
+}
+
+fn",
+        )
+        .unwrap();
+
+        let program = Program::new_from_module(&ast);
+        let actual = Interpreter::begin(&program).execute(&ast.body);
+
+        let t1 = Term::Name(
+            "fn".into(),
+            SourceRange {
+                start: SourceLocation::start(),
+                end: SourceLocation::start(),
+            },
+        );
+        let t2 = Term::Name(
+            "substring".into(),
+            SourceRange {
+                start: SourceLocation::start(),
+                end: SourceLocation::start(),
+            },
+        );
+        let expected = Err((
+            Cow::Borrowed("Stack empty"),
+            vec![(0usize, &t1), (0usize, &t2)],
+        ));
+        assert_eq!(actual, expected,);
     }
 }

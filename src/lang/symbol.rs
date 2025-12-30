@@ -30,3 +30,28 @@ impl Debug for Symbol {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Symbol;
+
+    #[test]
+    fn debug() {
+        assert_eq!(
+            ":{}()[]#@␤",
+            &format!(
+                "{:?}{:?}{:?}{:?}{:?}{:?}{:?}{:?}{:?}{:?}",
+                Symbol::Colon,
+                Symbol::CurlyOpen,
+                Symbol::CurlyClose,
+                Symbol::ParenOpen,
+                Symbol::ParenClose,
+                Symbol::SquareOpen,
+                Symbol::SquareClose,
+                Symbol::Hash,
+                Symbol::At,
+                Symbol::LineEnd,
+            )
+        );
+    }
+}

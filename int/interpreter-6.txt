@@ -1,0 +1,11 @@
+
+STDIN
+"hello world" 0 5 substring print
+"h" to_char from_char print
+STDOUT
+hello
+h
+
+STDERR
+EXIT_CODE
+0

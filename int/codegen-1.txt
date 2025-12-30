@@ -1,0 +1,10 @@
+-g
+c
+examples/unicode.sl
+STDIN
+STDOUT
+STDERR
+Non-ascii strings are not supported in C
+
+EXIT_CODE
+1

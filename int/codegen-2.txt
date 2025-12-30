@@ -1,0 +1,10 @@
+-g
+c
+int/codegen-2.sl
+STDIN
+STDOUT
+STDERR
+Unable to resolve name: not_real
+
+EXIT_CODE
+1

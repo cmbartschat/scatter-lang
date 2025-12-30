@@ -1,0 +1,9 @@
+
+STDIN
+3 3 4 + * print
+STDOUT
+21
+
+STDERR
+EXIT_CODE
+0

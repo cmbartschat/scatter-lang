@@ -1,0 +1,13 @@
+-a
+STDIN
+fn1: [dup]
+fn2: {{() 0 0 substring print (1) 1 + print}}
+fn3: fn4
+STDOUT
+fn1: unbounded
+fn2: incompatible types
+fn3: not resolved
+
+STDERR
+EXIT_CODE
+0

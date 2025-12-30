@@ -431,4 +431,26 @@ mod tests {
             Arity::noop().with_pop(Type::Number).with_push(Type::Number)
         );
     }
+
+    #[test]
+    fn parallel_1() {
+        assert_eq!(
+            Arity::parallel(
+                &Arity::noop().with_pop(Type::Number),
+                &Arity::noop().with_pop(Type::String)
+            ),
+            Err(crate::lang::ArityCombineError::DifferentInputs)
+        );
+    }
+
+    #[test]
+    fn parallel_2() {
+        assert_eq!(
+            Arity::parallel(
+                &Arity::noop().with_push(Type::Number),
+                &Arity::noop().with_push(Type::String)
+            ),
+            Ok(Arity::noop().with_push(Type::Unknown))
+        );
+    }
 }

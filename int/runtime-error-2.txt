@@ -1,0 +1,23 @@
+
+STDIN
+fn1: drop
+fn2: fn1
+fn3: fn2
+fn4: fn3
+fn4
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Stack empty
+│
+└─ at:  drop     input:1:6
+        fn1      input:1:6
+        fn2      input:1:6
+        fn3      input:1:6
+        fn4      input:1:1
+
+
+EXIT_CODE
+1

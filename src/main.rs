@@ -14,6 +14,8 @@ mod test_convert;
 mod test_e2e;
 mod test_interpreter;
 mod test_parser;
+mod test_tokenizer;
+mod test_values;
 mod tokenizer;
 use clap::Parser;
 

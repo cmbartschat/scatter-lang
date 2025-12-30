@@ -1,0 +1,15 @@
+
+STDIN
+@+ @+ ==
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Mismatched types cannot be compared with ==
+│
+└─ at:  ==     input:1:7
+
+
+EXIT_CODE
+1

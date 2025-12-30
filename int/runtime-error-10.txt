@@ -1,0 +1,15 @@
+
+STDIN
++
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Stack empty
+│
+└─ at:  +     input:1:1
+
+
+EXIT_CODE
+1

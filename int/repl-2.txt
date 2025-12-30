@@ -1,0 +1,50 @@
+
+STDIN
+# * "./examples/fibonacci.sl"
+# grade "./examples/grade.sl"
+# {fb} "./examples/fizzbuzz.sl"
+list
+exit
+STDOUT
+Available functions:
+  fibonacci
+  grade.grade
+  fb
+Intrinsics:
+  +
+  -
+  *
+  /
+  %
+  **
+  ||
+  &&
+  swap
+  dup
+  over
+  rot
+  drop
+  print
+  readline
+  substring
+  to_char
+  from_char
+  index
+  join
+  length
+  assert
+  eval
+  >
+  <
+  !
+  --
+  ++
+  ==
+REPL commands:
+  exit
+  list
+  clear
+
+STDERR
+EXIT_CODE
+0

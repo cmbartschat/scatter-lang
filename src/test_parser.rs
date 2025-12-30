@@ -2,8 +2,9 @@
 mod tests {
     use crate::lang::{
         Block, Branch, Function, Import, ImportLocation, ImportNaming, Loop, Module,
-        SourceLocation, SourceRange, Term,
+        SourceLocation, SourceRange, Symbol, Term,
     };
+    use crate::parse_error::{ParseError, UnexpectedError};
     use crate::parser::parse;
 
     fn name<T: Into<String>>(t: T) -> Term {
@@ -497,5 +498,47 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn bad_symbols_1() {
+        let symbols = [
+            Symbol::CurlyClose,
+            Symbol::SquareClose,
+            Symbol::ParenClose,
+            Symbol::ParenOpen,
+            Symbol::Colon,
+        ];
+
+        for symbol in symbols {
+            let result = parse(&format!("{:?}", symbol));
+            assert_eq!(
+                result,
+                Err(ParseError::Unexpected(UnexpectedError::GeneralSymbol(
+                    symbol,
+                    SourceLocation::start()
+                )))
+            );
+        }
+    }
+
+    #[test]
+    fn bad_symbols_2() {
+        let symbols = [Symbol::Hash];
+
+        for symbol in symbols {
+            let result = parse(&format!("fn: {:?}", symbol));
+            assert_eq!(
+                result,
+                Err(ParseError::Unexpected(UnexpectedError::GeneralSymbol(
+                    symbol,
+                    SourceLocation {
+                        line: 0,
+                        character: 4,
+                        column: 4
+                    },
+                )))
+            );
+        }
     }
 }

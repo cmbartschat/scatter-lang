@@ -1,0 +1,15 @@
+
+STDIN
+-3 substring
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Invalid substring end index
+│
+└─ at:  substring     input:1:4
+
+
+EXIT_CODE
+1

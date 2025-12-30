@@ -1,0 +1,17 @@
+
+STDIN
+# {grade} "./examples/grade.sl"
+"bad-input" grade
+STDOUT
+STDERR
+
+╒═════════════════════════════ Runtime Error
+│
+│  Expected two numbers on top of stack
+│
+└─ at:  <         examples/grade.sl:3:13
+        grade     input:1:13
+
+
+EXIT_CODE
+1

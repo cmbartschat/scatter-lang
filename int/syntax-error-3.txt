@@ -1,0 +1,18 @@
+
+STDIN
+[1 () 1]
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Unexpected expression after loop's post condition
+│
+└────────────────┐
+       1 │ [1 () 1]
+
+    INFO: If a loop contains a post condition, it must be the last statement before the closing ]
+
+
+EXIT_CODE
+1

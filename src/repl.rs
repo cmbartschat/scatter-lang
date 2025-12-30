@@ -26,13 +26,12 @@ fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
         Some(Err(AnalysisError::IndefiniteSize)) => {
             println!("{}: unbounded", label);
         }
-        Some(Err(AnalysisError::Pending)) => {
+        Some(Err(AnalysisError::Pending)) | None => {
             println!("{}: not resolved", label);
         }
         Some(Err(AnalysisError::IncompatibleTypes)) => {
             println!("{}: incompatible types", label);
         }
-        None => println!("{}: not resolved", label),
     }
 }
 
@@ -356,7 +355,7 @@ impl Repl {
 
         let mut res = String::with_capacity(1000);
         {
-            res.push_str("\n╒═════════════════════════════ Runtime Error \n│\n│  ");
+            res.push_str("\n╒═════════════════════════════ Runtime Error\n│\n│  ");
             res.push_str(&err);
             res.push('\n');
 
@@ -415,7 +414,7 @@ impl Repl {
         {
             let res = &mut res_owned;
 
-            res.push_str("\n╒═════════════════════════════ Syntax Error \n");
+            res.push_str("\n╒═════════════════════════════ Syntax Error\n");
 
             let (message, loc, info) = err.into_details();
 
