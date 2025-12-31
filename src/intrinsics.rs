@@ -248,7 +248,7 @@ fn get_intrinsic_data() -> IntrinsicsData {
         ("index", Arity::binary(S, S, N), string_index),
         ("join", Arity::binary(U, U, S), join),
         ("length", Arity::unary(S, N), length),
-        ("assert", Arity::noop().with_pop(S).with_pop(U), assert),
+        ("assert", Arity::pop_two(U, S), assert),
         ("eval", Arity::noop(), eval_i),
         (">", Arity::binary(N, N, B), greater),
         ("<", Arity::binary(N, N, B), less),

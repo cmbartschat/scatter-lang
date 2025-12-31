@@ -28,6 +28,30 @@ impl Type {
         }
     }
 
+    pub fn parse_raw(source: &str) -> Option<Self> {
+        Some(match source {
+            "n" => Self::Number,
+            "a" => Self::Address,
+            "s" => Self::String,
+            "u" => Self::Unknown,
+            "b" => Self::Bool,
+            _ => {
+                return None;
+            }
+        })
+    }
+
+    pub fn parse_as_pop(source: &str) -> Option<Self> {
+        Some(if let Some(e) = Self::parse_raw(source) {
+            e
+        } else {
+            if source.parse::<usize>().is_err() {
+                return None;
+            }
+            Type::Unknown
+        })
+    }
+
     pub fn union(self, other: Self) -> Self {
         if self.assignable_to(other) {
             other

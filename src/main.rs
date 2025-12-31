@@ -10,6 +10,7 @@ mod path;
 mod program;
 mod repl;
 mod test_analyze;
+mod test_arity;
 mod test_convert;
 mod test_e2e;
 mod test_interpreter;

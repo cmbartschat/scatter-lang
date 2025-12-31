@@ -13,6 +13,15 @@ pub enum AnalysisError {
     Pending,
 }
 
+impl From<ArityCombineError> for AnalysisError {
+    fn from(value: ArityCombineError) -> Self {
+        match value {
+            ArityCombineError::DifferingSizes => Self::IndefiniteSize,
+            ArityCombineError::IncompatibleTypes => Self::IncompatibleTypes,
+        }
+    }
+}
+
 pub type BlockAnalysisResult = Result<Arity, AnalysisError>;
 
 pub type NamespaceArities = HashMap<String, BlockAnalysisResult>;
@@ -52,13 +61,15 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
 }
 
 pub fn analyze_condition(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
-    Ok(analyze_block(analysis, b)?.with_pop(Type::Unknown))
+    let mut res = analyze_block(analysis, b)?;
+    res.pop_any();
+    Ok(res)
 }
 
 pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
     let mut a = Arity::noop();
     for term in &b.terms {
-        a.serial(&analyze_term(analysis, term)?);
+        a = Arity::serial(&a, &analyze_term(analysis, term)?)?;
     }
     Ok(a)
 }
@@ -95,7 +106,7 @@ fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
                 Err(ArityCombineError::DifferingSizes) => {
                     return Err(AnalysisError::IndefiniteSize);
                 }
-                Err(ArityCombineError::DifferentInputs) => {
+                Err(ArityCombineError::IncompatibleTypes) => {
                     return Err(AnalysisError::IncompatibleTypes);
                 }
             }
@@ -108,7 +119,7 @@ fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
 
     for arm in &branch.arms {
         let condition_arity = analyze_condition(analysis, &arm.0)?;
-        running.serial(&condition_arity);
+        running = Arity::serial(&running, &condition_arity)?;
 
         let (possible, last_arm) = match block_is_always_truthy(&arm.0) {
             BlockTruthiness::AlwaysTruthy => (true, true),
@@ -118,7 +129,7 @@ fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
 
         if possible {
             let block_arity = analyze_block(analysis, &arm.1)?;
-            let arity = running.clone().with_serial(&block_arity);
+            let arity = Arity::serial(&running, &block_arity)?;
             add_termination(arity)?;
         }
 
@@ -159,18 +170,10 @@ fn analyze_loop(analysis: &Analysis, loop_v: &Loop) -> BlockAnalysisResult {
                                   possible: &mut Option<Arity>,
                                   next: &Arity|
      -> Result<(), AnalysisError> {
-        running.serial(next);
+        *running = Arity::serial(running, next)?;
 
         let next_possible = match possible {
-            Some(possible) => match Arity::parallel(possible, running) {
-                Ok(n) => n,
-                Err(ArityCombineError::DifferingSizes) => {
-                    return Err(AnalysisError::IndefiniteSize);
-                }
-                Err(ArityCombineError::DifferentInputs) => {
-                    return Err(AnalysisError::IncompatibleTypes);
-                }
-            },
+            Some(possible) => Arity::parallel(possible, running)?,
             None => running.clone(),
         };
 
@@ -189,7 +192,7 @@ fn analyze_loop(analysis: &Analysis, loop_v: &Loop) -> BlockAnalysisResult {
             record_next_exit_arity(&mut running_arity, &mut possible_arity, pre)?;
         }
 
-        running_arity.serial(&main_arity);
+        running_arity = Arity::serial(&running_arity, &main_arity)?;
 
         if let Some(post) = post_arity.as_ref() {
             record_next_exit_arity(&mut running_arity, &mut possible_arity, post)?;

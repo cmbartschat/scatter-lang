@@ -116,6 +116,19 @@ impl ResultantType {
         }
     }
 
+    pub fn parse(source: &str) -> Option<Self> {
+        if let Some(t) = Type::parse_raw(source) {
+            return Some(Self::Normal(t));
+        }
+        let mut segments = source.split('|').map(|f| f.parse::<usize>().ok());
+        let first = segments.next()??;
+        let mut indices = MultiIndex::from(first);
+        for segment in segments {
+            indices.insert(segment?);
+        }
+        Some(Self::Dependent(indices))
+    }
+
     pub fn references(&self, i: usize) -> bool {
         match self {
             ResultantType::Normal(_) => false,
@@ -147,7 +160,7 @@ pub struct Arity {
 #[derive(Clone, PartialEq, Debug)]
 pub enum ArityCombineError {
     DifferingSizes,
-    DifferentInputs,
+    IncompatibleTypes,
 }
 
 impl Arity {
@@ -158,24 +171,39 @@ impl Arity {
         }
     }
 
-    pub fn size(&self) -> (usize, usize) {
-        (self.pops.len(), self.pushes.len())
-    }
-
     pub fn literal(r: Type) -> Self {
-        Self::noop().with_push(r)
+        Self {
+            pops: vec![],
+            pushes: vec![r.into()],
+        }
     }
 
     pub fn unary(a: Type, r: Type) -> Self {
-        Self::noop().with_pop(a).with_push(r)
+        Self {
+            pops: vec![a],
+            pushes: vec![r.into()],
+        }
     }
 
     pub fn push_two(a: Type, b: Type) -> Self {
-        Self::noop().with_push(a).with_push(b)
+        Self {
+            pops: vec![],
+            pushes: vec![a.into(), b.into()],
+        }
+    }
+
+    pub fn pop_two(a: Type, b: Type) -> Self {
+        Self {
+            pops: vec![b, a],
+            pushes: vec![],
+        }
     }
 
     pub fn binary(a: Type, b: Type, r: Type) -> Self {
-        Self::noop().with_pop(a).with_pop(b).with_push(r)
+        Self {
+            pops: vec![a, b],
+            pushes: vec![r.into()],
+        }
     }
 
     pub fn generic_1<T>(pop_count: usize, res1: T) -> Self
@@ -184,7 +212,7 @@ impl Arity {
     {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
-            res.pop(Type::Unknown);
+            res.pops.push(Type::Unknown);
         }
         res.pushes.push(ResultantType::Dependent(res1.into()));
         res
@@ -197,7 +225,7 @@ impl Arity {
     {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
-            res.pop(Type::Unknown);
+            res.pops.push(Type::Unknown);
         }
         res.pushes.push(ResultantType::Dependent(res1.into()));
         res.pushes.push(ResultantType::Dependent(res2.into()));
@@ -212,7 +240,7 @@ impl Arity {
     {
         let mut res = Arity::noop();
         for _ in 0..pop_count {
-            res.pop(Type::Unknown);
+            res.pops.push(Type::Unknown);
         }
         res.pushes.push(ResultantType::Dependent(res1.into()));
         res.pushes.push(ResultantType::Dependent(res2.into()));
@@ -228,14 +256,29 @@ impl Arity {
         Self::unary(Type::Number, Type::Number)
     }
 
-    pub fn pop(&mut self, term: Type) -> ResultantType {
+    pub fn size(&self) -> (usize, usize) {
+        (self.pops.len(), self.pushes.len())
+    }
+
+    pub fn pop_any(&mut self) {
+        if self.pushes.pop().is_none() {
+            self.pops.push(Type::Unknown);
+        }
+    }
+
+    pub fn attempt_pop(&mut self, term: Type) -> Result<ResultantType, ArityCombineError> {
         match (self.pushes.pop(), term) {
-            (Some(ResultantType::Normal(t)), _) => t.into(),
+            (Some(ResultantType::Normal(t)), _) => {
+                if !t.assignable_to(term) {
+                    return Err(ArityCombineError::IncompatibleTypes);
+                }
+                Ok(t.into())
+            }
             (None, _) => {
                 self.pops.push(term);
-                ResultantType::Dependent((self.pops.len() - 1).into())
+                Ok(ResultantType::Dependent((self.pops.len() - 1).into()))
             }
-            (Some(ResultantType::Dependent(i)), Type::Unknown) => ResultantType::Dependent(i),
+            (Some(ResultantType::Dependent(i)), Type::Unknown) => Ok(ResultantType::Dependent(i)),
             (Some(ResultantType::Dependent(i)), _) => {
                 for x in i.iter() {
                     if term.assignable_to(self.pops[x]) {
@@ -246,10 +289,10 @@ impl Arity {
                         }
                         self.pops[x] = term;
                     } else {
-                        todo!("Handle incompatible types")
+                        return Err(ArityCombineError::IncompatibleTypes);
                     }
                 }
-                term.into()
+                Ok(term.into())
             }
         }
     }
@@ -261,34 +304,26 @@ impl Arity {
         self.pushes.push(term.into());
     }
 
-    pub fn with_pop(mut self, other: Type) -> Arity {
-        self.pop(other);
-        self
-    }
+    pub fn serial(first: &Arity, second: &Arity) -> Result<Arity, ArityCombineError> {
+        let mut running = first.clone();
+        let resolved_pop_types = second.pops.iter().try_fold(vec![], |mut acc, f| {
+            acc.push(running.attempt_pop(f.to_owned())?);
+            Ok(acc)
+        })?;
 
-    pub fn with_push(mut self, other: Type) -> Arity {
-        self.push(other);
-        self
-    }
-
-    pub fn serial(&mut self, other: &Arity) {
-        let mapped_types = other
-            .pops
-            .iter()
-            .map(|f| self.pop(f.to_owned()))
-            .collect::<Vec<ResultantType>>();
-
-        other.pushes.iter().for_each(|f| match f {
-            ResultantType::Normal(t) => self.push(*t),
+        second.pushes.iter().for_each(|f| match f {
+            ResultantType::Normal(t) => running.push(*t),
             ResultantType::Dependent(x) => {
-                let mut first = mapped_types[x.el].clone();
-                let others = x.iter_rest().map(|f| &mapped_types[f]);
+                let mut first = resolved_pop_types[x.el].clone();
+                let others = x.iter_rest().map(|f| &resolved_pop_types[f]);
                 for other in others {
                     first = first.union(other);
                 }
-                self.push(first);
+                running.push(first);
             }
         });
+
+        Ok(running)
     }
 
     pub fn stringify(&self) -> String {
@@ -318,6 +353,28 @@ impl Arity {
             .insert(0, ResultantType::Dependent((self.pops.len() - 1).into()));
     }
 
+    fn resolve_dependents(pushes: &mut Vec<ResultantType>, pops: &[Type]) {
+        for push in pushes {
+            match push {
+                ResultantType::Normal(_) => {}
+                ResultantType::Dependent(multi_index) => {
+                    let mut resolved_type: Option<Type> = None;
+                    for index in multi_index.iter() {
+                        if pops[index] != Type::Unknown {
+                            resolved_type = match resolved_type {
+                                Some(t) => t.inter(pops[index]),
+                                None => Some(pops[index]),
+                            }
+                        }
+                    }
+                    if let Some(resolved_type) = resolved_type {
+                        *push = resolved_type.into();
+                    }
+                }
+            }
+        }
+    }
+
     pub fn parallel(raw_left: &Arity, raw_right: &Arity) -> Result<Arity, ArityCombineError> {
         let mut left = raw_left.clone();
         let mut right = raw_right.clone();
@@ -334,34 +391,50 @@ impl Arity {
         if left.size() != right.size() {
             return Err(ArityCombineError::DifferingSizes);
         }
+
         let mut res = Arity::noop();
 
         for (i, t) in left.pops.iter().enumerate() {
             let Some(expected_type) = right.pops[i].inter(*t) else {
-                return Err(ArityCombineError::DifferentInputs);
+                return Err(ArityCombineError::IncompatibleTypes);
             };
-            res.pop(expected_type);
+            res.pops.push(expected_type);
         }
 
+        Self::resolve_dependents(&mut left.pushes, &res.pops);
+        Self::resolve_dependents(&mut right.pushes, &res.pops);
+
         for (i, t) in left.pushes.iter().enumerate() {
-            res.push(t.union(&right.pushes[i]));
+            res.pushes.push(t.union(&right.pushes[i]));
         }
 
         Ok(res)
     }
 
-    pub fn with_serial(mut self, other: &Arity) -> Arity {
-        self.serial(other);
-        self
+    #[allow(dead_code)]
+    pub fn parse(source: &str) -> Option<Self> {
+        let (pops, pushes) = source.split_once('-')?;
+        let pops = pops
+            .split(' ')
+            .rev()
+            .map(str::trim)
+            .filter(|e| !e.is_empty())
+            .try_fold(vec![], |mut acc, e| {
+                acc.push(Type::parse_as_pop(e)?);
+                Some(acc)
+            })?;
+
+        let pushes = pushes
+            .split(' ')
+            .map(str::trim)
+            .filter(|e| !e.is_empty())
+            .try_fold(vec![], |mut acc, e| {
+                acc.push(ResultantType::parse(e)?);
+                Some(acc)
+            })?;
+
+        Some(Self { pops, pushes })
     }
-
-    // pops1 + pushes1 + pops2 + pushes2
-    // (int int -- int) + (int int -- int) = (int int int -- int)
-
-    // (a -- b) + (b -- ) => (a -- )
-    // (a -- b) + (b -- ) => (a -- )
-    // (a b -- c d) + (c d -- e f) = (a b -- e f)
-    // (a b -- c d) + (e c d -- f) = (e a b -- f)
 }
 
 impl std::fmt::Debug for Arity {
@@ -376,81 +449,5 @@ impl From<(Vec<Type>, Vec<Type>)> for Arity {
             pops: value.0,
             pushes: value.1.into_iter().map(Into::into).collect(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::lang::{Arity, Type};
-
-    #[test]
-    fn two_pushes() {
-        assert_eq!(
-            Arity::literal(Type::Number).with_serial(&Arity::literal(Type::Number)),
-            Arity::noop()
-                .with_push(Type::Number)
-                .with_push(Type::Number),
-        );
-    }
-
-    #[test]
-    fn push_pop() {
-        assert_eq!(
-            Arity::literal(Type::Number).with_serial(&Arity::noop().with_pop(Type::Number)),
-            Arity::noop(),
-        );
-    }
-
-    #[test]
-    fn combine_number_binary() {
-        assert_eq!(
-            Arity::number_binary().with_serial(&Arity::number_binary()),
-            Arity::noop()
-                .with_pop(Type::Number)
-                .with_pop(Type::Number)
-                .with_pop(Type::Number)
-                .with_push(Type::Number)
-        );
-    }
-
-    #[test]
-    fn combine_number_unary() {
-        assert_eq!(
-            Arity::number_binary().with_serial(&Arity::number_unary()),
-            Arity::noop()
-                .with_pop(Type::Number)
-                .with_pop(Type::Number)
-                .with_push(Type::Number)
-        );
-    }
-
-    #[test]
-    fn number_reachover() {
-        assert_eq!(
-            Arity::literal(Type::Number).with_serial(&Arity::number_binary()),
-            Arity::noop().with_pop(Type::Number).with_push(Type::Number)
-        );
-    }
-
-    #[test]
-    fn parallel_1() {
-        assert_eq!(
-            Arity::parallel(
-                &Arity::noop().with_pop(Type::Number),
-                &Arity::noop().with_pop(Type::String)
-            ),
-            Err(crate::lang::ArityCombineError::DifferentInputs)
-        );
-    }
-
-    #[test]
-    fn parallel_2() {
-        assert_eq!(
-            Arity::parallel(
-                &Arity::noop().with_push(Type::Number),
-                &Arity::noop().with_push(Type::String)
-            ),
-            Ok(Arity::noop().with_push(Type::Unknown))
-        );
     }
 }
