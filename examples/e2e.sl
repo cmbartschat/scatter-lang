@@ -371,13 +371,13 @@ end_suite
 0
 /* 5555 + */ 1 +
 /**/ 2 +
-/* 5555 + / */ 
-/* 5555 + /* */ 
-/* 5555 + /* **/ 
+/* 5555 + / */
+/* 5555 + /* */
+/* 5555 + /* **/
 //* something
-4 + 
+4 +
 7 should_equal
-multiline_comment_single: /* something 
+multiline_comment_single: /* something
 */ 3
 multiline_comment_single multiline_comment_single * 9 should_equal
 "/*hello*/" length 9 should_equal

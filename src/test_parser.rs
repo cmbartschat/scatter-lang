@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn imports_1() {
         let code = r#"
-# {name1 name2} "./1.sl" 
+# {name1 name2} "./1.sl"
 # scope "./2.sl"
 # * "./3.sl"
         "#;
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn imports_2() {
         let code = r#"
-# {name1 name2} "./1.sl" 
+# {name1 name2} "./1.sl"
         "#;
 
         let ast = Module {
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn multiline_5() {
         let code = r"
-/* 1 * * 
+/* 1 * *
 
 */
 ";
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn multiline_6() {
         let code = r"
-/*/ 1 * * 
+/*/ 1 * *
 
 */
 ";
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn multiline_7() {
         let code = r"
-/*/ 1 * * 
+/*/ 1 * *
 
 */4
 ";
@@ -486,7 +486,7 @@ mod tests {
     #[test]
     fn multiline_8() {
         let code = r"
-5/*/ 1 * * 
+5/*/ 1 * *
 
 */
 ";
