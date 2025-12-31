@@ -1,4 +1,4 @@
-#!/usr/bin/env stacklang
+#!/usr/bin/env scatter
 15 // number of lines to read
 [
   (readline)

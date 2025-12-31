@@ -1,5 +1,5 @@
-#!/usr/bin/env stacklang
-// StackLang Intrinsics Unit Tests
+#!/usr/bin/env scatter
+// Intrinsics Unit Tests
 
 #* "./test.sl"
 

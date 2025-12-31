@@ -1,30 +1,30 @@
-# Stacklang
+# Scatter
 
-A stack based programming language.
+Experimental stack based programming language
 
 ## Installation
 
 1. Install Rust using https://rustup.rs/
 2. Clone this repo
-3. `cd /path/to/stacklang`
+3. `cd /path/to/scatter-lang`
 4. `cargo install --path .`
 
-Once installed, Stacklang programs can be made into executables by adding `#!/usr/bin/env stacklang` to the start of the file and running `chmod +x ./program.sl`. This will allow you to run `./program.sl` directly.
+Once installed, Scatter programs can be made into executables by adding `#!/usr/bin/env scatter` to the start of the file and running `chmod +x ./program.sl`. This will allow you to run `./program.sl` directly.
 
 ## Usage
 
 ### Running Programs
 
-Execute a Stacklang file (`.sl` extension):
+Execute a Scatter file (`.sl` extension):
 
 ```bash
-stacklang program.sl
+scatter program.sl
 ```
 
 Run multiple files in sequence:
 
 ```bash
-stacklang file1.sl file2.sl file3.sl
+scatter file1.sl file2.sl file3.sl
 ```
 
 ### REPL Mode
@@ -32,7 +32,7 @@ stacklang file1.sl file2.sl file3.sl
 Launch the interactive REPL by running without arguments:
 
 ```bash
-stacklang
+scatter
 ```
 
 ### Command-Line Options
@@ -44,10 +44,10 @@ Examples:
 
 ```bash
 # Type check a program
-stacklang -a program.sl
+scatter -a program.sl
 
 # Generate JavaScript code for the given program
-stacklang -g js program.sl
+scatter -g js program.sl
 ```
 
 ## Quick Start
@@ -94,17 +94,17 @@ countdown: {
 5 countdown     // [5, 4, 3, 2, 1]
 ```
 
-The `examples/` directory contains various Stacklang programs demonstrating different features:
+The `examples/` directory contains various Scatter programs demonstrating different features:
 
 Run any example with:
 
 ```bash
-stacklang ./examples/fibonacci.sl
+scatter ./examples/fibonacci.sl
 ```
 
 ## Stack
 
-The stack is the core data structure in Stacklang. All values exist on the stack, and logic manipulates the stack to transform data. There are no variables, all state is on the stack.
+The stack is the core data structure in Scatter. All values exist on the stack, and logic manipulates the stack to transform data. There are no variables, all state is on the stack.
 
 The stack grows as items are pushed - newer items are pushed to the end:
 
@@ -452,7 +452,7 @@ square: dup *
 
 ## Errors
 
-Stacklang will exit with an error message on:
+Scatter will exit with an error message on:
 
 - Stack underflow (trying to pop from an empty stack)
 - Type mismatches (e.g., using arithmetic operations on strings)
@@ -463,14 +463,14 @@ Errors display a descriptive message and cause the program to terminate with a n
 
 ## Code Generation
 
-In addition to the interpreted mode, Stacklang source code can be converted to source code in other languages. Javascript and C are currently supported. The code will be outputted to stdout so the code can either be directed to a file, or piped directly into node for example.
+In addition to the interpreted mode, Scatter source code can be converted to source code in other languages. Javascript and C are currently supported. The code will be outputted to stdout so the code can either be directed to a file, or piped directly into node for example.
 
 ```bash
-stacklang --generate js examples/fizzbuzz.sl | node
+scatter --generate js examples/fizzbuzz.sl | node
 ```
 
 ```bash
-stacklang --generate c examples/fizzbuzz.sl > /tmp/fizzbuzz.c
+scatter --generate c examples/fizzbuzz.sl > /tmp/fizzbuzz.c
 gcc -o /tmp/fizzbuzz /tmp/fizzbuzz.c
 /tmp/fizzbuzz
 ```

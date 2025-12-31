@@ -1,4 +1,4 @@
-#!/usr/bin/env stacklang
+#!/usr/bin/env scatter
 
 "LENGTH" print
 
