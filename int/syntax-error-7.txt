@@ -1,0 +1,18 @@
+
+STDIN
+"\u{ffffff}"
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Unicode escape pattern is outside the allowable range
+│
+└────────────────────┐
+       1 │ "\u{ffffff}"
+
+    INFO: Unicode codepoints range from U+0000 to U+10FFFF, with some invalid ranges in between
+
+
+EXIT_CODE
+1

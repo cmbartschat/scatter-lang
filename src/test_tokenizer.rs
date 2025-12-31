@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::lang::{SourceLocation, Token};
-    use crate::tokenizer::{TokenizeError, tokenize};
+    use crate::tokenizer::{EscapeSequenceError, TokenizeError, tokenize};
 
     fn expect_tokens(source: &str, expected: &[Token]) {
         let actual: Vec<Token> = tokenize(source)
@@ -26,22 +26,28 @@ mod tests {
     #[test]
     fn string_2() {
         let source = r#""\1""#;
-        let expected = TokenizeError::InvalidStringEscapeChar(SourceLocation {
-            line: 0,
-            character: 2,
-            column: 2,
-        });
+        let expected = TokenizeError::InvalidEscape(
+            EscapeSequenceError::InvalidCharacter,
+            SourceLocation {
+                line: 0,
+                character: 2,
+                column: 2,
+            },
+        );
         expect_error(source, &expected);
     }
 
     #[test]
     fn string_3() {
         let source = r#""\xf-""#;
-        let expected = TokenizeError::InvalidStringEscapeHex(SourceLocation {
-            line: 0,
-            character: 4,
-            column: 4,
-        });
+        let expected = TokenizeError::InvalidEscape(
+            EscapeSequenceError::InvalidHex,
+            SourceLocation {
+                line: 0,
+                character: 4,
+                column: 4,
+            },
+        );
         expect_error(source, &expected);
     }
 

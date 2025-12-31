@@ -1,0 +1,17 @@
+
+STDIN
+"\u{}"
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Expected at least one digit in unicode escape pattern
+│
+└──────────────┐
+       1 │ "\u{}"
+
+
+
+EXIT_CODE
+1

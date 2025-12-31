@@ -1,0 +1,19 @@
+
+STDIN
+"\u{000001}"
+"\u{0000001}"
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Exceeded maximum unicode sequence length
+│
+└────────────────────┐
+       1 │ "\u{0000001}"
+
+    INFO: Unicode codepoints do not exceed U+10FFFF which is only 6 digits
+
+
+EXIT_CODE
+1

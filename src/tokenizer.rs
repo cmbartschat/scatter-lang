@@ -9,19 +9,73 @@ enum StringDelimiter {
     Double,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Clone)]
+struct UnicodeEscapeState {
+    waiting_for_bracket: bool,
+    value: u32,
+    digit_count: u8,
+}
+
+impl UnicodeEscapeState {
+    fn get_character(&self) -> Result<char, EscapeSequenceError> {
+        if self.digit_count == 0 {
+            return Err(EscapeSequenceError::EmptyUnicode);
+        }
+
+        match char::from_u32(self.value) {
+            Some(v) => Ok(v),
+            None => Err(EscapeSequenceError::OutOfUnicodeRange),
+        }
+    }
+
+    pub fn next(mut self, char: char) -> Result<(Option<Self>, Option<char>), EscapeSequenceError> {
+        if char == '}' {
+            if !self.waiting_for_bracket {
+                return Err(EscapeSequenceError::InvalidUnicode);
+            }
+            return Ok((None, Some(self.get_character()?)));
+        }
+
+        if self.digit_count == 0 && char == '{' {
+            self.waiting_for_bracket = true;
+        } else {
+            let Some(digit) = hex_char_to_u8(char) else {
+                return Err(EscapeSequenceError::InvalidUnicode);
+            };
+            if self.digit_count >= 6 {
+                return Err(EscapeSequenceError::TooManyUnicodeDigits);
+            }
+            self.digit_count += 1;
+            self.value = (self.value * 16) + u32::from(digit);
+        }
+
+        if self.digit_count == 4 && !self.waiting_for_bracket {
+            return Ok((None, Some(self.get_character()?)));
+        }
+
+        Ok((Some(self), None))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 enum EscapeState {
     EscapeNext,
     Hex(Option<char>),
+    Unicode(UnicodeEscapeState),
 }
 
-enum EscapeStateError {
+#[derive(Debug, PartialEq)]
+pub enum EscapeSequenceError {
     InvalidCharacter,
     InvalidHex,
+    InvalidUnicode,
+    EmptyUnicode,
+    TooManyUnicodeDigits,
+    OutOfUnicodeRange,
 }
 
 impl EscapeState {
-    pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), EscapeStateError> {
+    pub fn next(self, char: char) -> Result<(Option<Self>, Option<char>), EscapeSequenceError> {
         let res = match self {
             EscapeState::EscapeNext => match char {
                 c @ ('\\' | '"' | '\'') => c,
@@ -31,8 +85,18 @@ impl EscapeState {
                 '0' => '\0',
                 '\n' => return Ok((None, None)),
                 'x' => return Ok((Some(Self::Hex(None)), None)),
+                'u' => {
+                    return Ok((
+                        Some(Self::Unicode(UnicodeEscapeState {
+                            waiting_for_bracket: false,
+                            digit_count: 0,
+                            value: 0,
+                        })),
+                        None,
+                    ));
+                }
                 _ => {
-                    return Err(EscapeStateError::InvalidCharacter);
+                    return Err(EscapeSequenceError::InvalidCharacter);
                 }
             },
             Self::Hex(x) => match x {
@@ -40,12 +104,16 @@ impl EscapeState {
                     let (Some(high_value), Some(low_value)) =
                         (hex_char_to_u8(prev_char), hex_char_to_u8(char))
                     else {
-                        return Err(EscapeStateError::InvalidHex);
+                        return Err(EscapeSequenceError::InvalidHex);
                     };
                     (high_value * 16 + low_value) as char
                 }
                 None => return Ok((Some(Self::Hex(Some(char))), None)),
             },
+            Self::Unicode(x) => {
+                let (next, char) = x.next(char)?;
+                return Ok((next.map(Self::Unicode), char));
+            }
         };
 
         Ok((None, Some(res)))
@@ -77,11 +145,8 @@ impl StringParseState {
                         word.push(c);
                     }
                 }
-                Err(EscapeStateError::InvalidCharacter) => {
-                    return Err(TokenizeError::InvalidStringEscapeChar(loc.current));
-                }
-                Err(EscapeStateError::InvalidHex) => {
-                    return Err(TokenizeError::InvalidStringEscapeHex(loc.current));
+                Err(e) => {
+                    return Err(TokenizeError::InvalidEscape(e, loc.current));
                 }
             },
             None => match (char, self.delimiter) {
@@ -325,8 +390,7 @@ impl ParseState {
 #[derive(Debug, PartialEq)]
 pub enum TokenizeError {
     UnboundedString(SourceLocation),
-    InvalidStringEscapeChar(SourceLocation),
-    InvalidStringEscapeHex(SourceLocation),
+    InvalidEscape(EscapeSequenceError, SourceLocation),
     UnboundedComment(SourceLocation),
 }
 

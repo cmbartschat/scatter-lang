@@ -1,0 +1,18 @@
+
+STDIN
+"\uff{"
+STDOUT
+STDERR
+
+╒═════════════════════════════ Syntax Error
+│
+│   Unexpected character in unicode escape pattern
+│
+└───────────────┐
+       1 │ "\uff{"
+
+    INFO: Unicode escape sequences contain a sequence of hex digits, such as '\u{1f4a9}' and '\u0915'
+
+
+EXIT_CODE
+1

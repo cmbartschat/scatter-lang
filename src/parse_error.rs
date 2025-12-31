@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     lang::{SourceLocation, SourceRange, Symbol},
-    tokenizer::TokenizeError,
+    tokenizer::{EscapeSequenceError, TokenizeError},
 };
 
 #[derive(Debug, PartialEq)]
@@ -174,8 +174,7 @@ impl TokenizeError {
     pub fn is_early_eof(&self) -> bool {
         match self {
             TokenizeError::UnboundedString(_source_location) => true,
-            TokenizeError::InvalidStringEscapeChar(_source_location) => false,
-            TokenizeError::InvalidStringEscapeHex(_source_location) => false,
+            TokenizeError::InvalidEscape(..) => false,
             TokenizeError::UnboundedComment(_source_location) => false,
         }
     }
@@ -187,15 +186,33 @@ impl TokenizeError {
                 loc,
                 "String literals can span multiple lines, so an earlier string may be unclosed",
             ),
-            Self::InvalidStringEscapeChar(loc) => Details::full(
+            Self::InvalidEscape(EscapeSequenceError::InvalidCharacter, loc) => Details::full(
                 "Invalid string escape character",
                 loc,
-                r"Supported escapes are: '\n', '\r', '\t', '\0', and '\xff'",
+                r"Supported escapes are: '\n', '\r', '\t', '\0', '\xff', '\u{1f4a9}', and '\u0915'",
             ),
-            Self::InvalidStringEscapeHex(loc) => Details::full(
+            Self::InvalidEscape(EscapeSequenceError::InvalidHex, loc) => Details::full(
                 "Invalid hex escape pattern",
                 loc,
                 "Correct hex escapes look like: '\\xff'",
+            ),
+            Self::InvalidEscape(EscapeSequenceError::InvalidUnicode, loc) => Details::full(
+                "Unexpected character in unicode escape pattern",
+                loc,
+                r"Unicode escape sequences contain a sequence of hex digits, such as '\u{1f4a9}' and '\u0915'",
+            ),
+            Self::InvalidEscape(EscapeSequenceError::EmptyUnicode, loc) => {
+                Details::message("Expected at least one digit in unicode escape pattern", loc)
+            }
+            Self::InvalidEscape(EscapeSequenceError::TooManyUnicodeDigits, loc) => Details::full(
+                "Exceeded maximum unicode sequence length",
+                loc,
+                "Unicode codepoints do not exceed U+10FFFF which is only 6 digits",
+            ),
+            Self::InvalidEscape(EscapeSequenceError::OutOfUnicodeRange, loc) => Details::full(
+                "Unicode escape pattern is outside the allowable range",
+                loc,
+                "Unicode codepoints range from U+0000 to U+10FFFF, with some invalid ranges in between",
             ),
             Self::UnboundedComment(loc) => Details::full(
                 "End of input reached before ending comment",

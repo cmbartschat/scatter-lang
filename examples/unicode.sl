@@ -10,7 +10,7 @@ check_length: { // string length --
 "a😀b" 3 check_length
 "👍🏽" 2 check_length
 "🇫🇷" 2 check_length
-// todo unicode escapes "é" 2 check_length
+"e\u0301" 2 check_length
 "𝄞" 1 check_length
 "👨‍👩‍👧‍👦" 7 check_length
 "क्‍ष" 4 check_length
@@ -99,7 +99,7 @@ check_index: { // haystack needle index
 "👨‍👩‍👧‍👦hi" "hi" 7 check_index
 "𝄞hi" "hi" 1 check_index
 "中😀文" "😀文" 1 check_index
-// todo unicode literals "éhi" "hi" 2 check_index
+"e\u0301hi" "hi" 2 check_index
 
 "SUBSTRING" print
 
@@ -119,8 +119,8 @@ check_substring: {
 "👨‍👩‍👧‍👦" "👨‍👩‍👧‍👦hi" 0 7 check_substring
 "hi" "👨‍👩‍👧‍👦hi" 7 9 check_substring
 "文😀" "中文😀a" 1 3 check_substring
-// todo unicode literals "é" "aéb" 1 3 check_substring
-// todo literals "́" "é" 1 2 check_substring
+"e\u0301" "ae\u{301}b" 1 3 check_substring
+"́" "e\u0301" 1 2 check_substring
 "𐍈" "a𐍈b" 1 2 check_substring
 "𠝹" "𠜎𠝹𠜱" 1 2 check_substring
 
