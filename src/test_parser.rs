@@ -541,4 +541,59 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn capture_1() {
+        let code = r"
+5 ~v1~
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block {
+                terms: vec![
+                    5f64.into(),
+                    Term::Capture(
+                        "v1".into(),
+                        SourceRange {
+                            start: SourceLocation::start(),
+                            end: SourceLocation::start(),
+                        },
+                    ),
+                ],
+            },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
+
+    #[test]
+    fn capture_2() {
+        let code = r"
+5 ~v1 v2~
+";
+        let result = parse(code).unwrap();
+        let ast = Module {
+            body: Block {
+                terms: vec![
+                    5f64.into(),
+                    Term::Capture(
+                        "v2".into(),
+                        SourceRange {
+                            start: SourceLocation::start(),
+                            end: SourceLocation::start(),
+                        },
+                    ),
+                    Term::Capture(
+                        "v1".into(),
+                        SourceRange {
+                            start: SourceLocation::start(),
+                            end: SourceLocation::start(),
+                        },
+                    ),
+                ],
+            },
+            ..Default::default()
+        };
+        assert_eq!(result, ast);
+    }
 }

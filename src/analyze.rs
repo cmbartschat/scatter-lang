@@ -32,6 +32,7 @@ pub struct Analysis<'a> {
     pub arities: AritiesByNamespace,
     pub namespace: NamespaceId,
     pub program: &'a Program,
+    pub captures: HashMap<&'a str, Type>,
 }
 
 enum BlockTruthiness {
@@ -50,7 +51,9 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
         Term::Number(t) => !t.is_nan() && *t != 0f64,
         Term::Bool(true) | Term::Address(_) => true,
         Term::Bool(false) => false,
-        Term::Name(_, _) | Term::Branch(_) | Term::Loop(_) => return BlockTruthiness::Unknown,
+        Term::Capture(..) | Term::Name(_, _) | Term::Branch(_) | Term::Loop(_) => {
+            return BlockTruthiness::Unknown;
+        }
     };
 
     if is_truthy {
@@ -60,13 +63,13 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
     }
 }
 
-pub fn analyze_condition(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
+pub fn analyze_condition(analysis: &mut Analysis, b: &Block) -> BlockAnalysisResult {
     let mut res = analyze_block(analysis, b)?;
     res.pop_any();
     Ok(res)
 }
 
-pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
+pub fn analyze_block(analysis: &mut Analysis, b: &Block) -> BlockAnalysisResult {
     let mut a = Arity::noop();
     for term in &b.terms {
         a = Arity::serial(&a, &analyze_term(analysis, term)?)?;
@@ -74,9 +77,13 @@ pub fn analyze_block(analysis: &Analysis, b: &Block) -> BlockAnalysisResult {
     Ok(a)
 }
 
-fn analyze_name(analysis: &Analysis, n: &str) -> BlockAnalysisResult {
+fn analyze_name(analysis: &mut Analysis, n: &str) -> BlockAnalysisResult {
     if let Some(arity) = get_intrinsic_arity(n)? {
         return Ok(arity.clone());
+    }
+
+    if let Some(x) = analysis.captures.get(n) {
+        return Ok(Arity::literal(*x));
     }
 
     let Some((resolved_namespace_id, resolved_name)) =
@@ -95,7 +102,7 @@ fn analyze_name(analysis: &Analysis, n: &str) -> BlockAnalysisResult {
     arity_result.clone()
 }
 
-fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
+fn analyze_branch(analysis: &mut Analysis, branch: &Branch) -> BlockAnalysisResult {
     let mut running = Arity::noop();
 
     let mut combined: Option<Arity> = None;
@@ -143,7 +150,7 @@ fn analyze_branch(analysis: &Analysis, branch: &Branch) -> BlockAnalysisResult {
     Ok(combined.expect("Unable to combine branch arms"))
 }
 
-fn analyze_loop(analysis: &Analysis, loop_v: &Loop) -> BlockAnalysisResult {
+fn analyze_loop(analysis: &mut Analysis, loop_v: &Loop) -> BlockAnalysisResult {
     let pre_arity = if let Some(pre) = &loop_v.pre_condition {
         Some(analyze_condition(analysis, pre)?)
     } else {
@@ -202,7 +209,7 @@ fn analyze_loop(analysis: &Analysis, loop_v: &Loop) -> BlockAnalysisResult {
     Ok(possible_arity.expect("Must have filled possible_arity at least once"))
 }
 
-pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
+pub fn analyze_term(analysis: &mut Analysis, term: &Term) -> BlockAnalysisResult {
     match term {
         Term::String(_) => Ok(Arity::literal(Type::String)),
         Term::Number(_) => Ok(Arity::literal(Type::Number)),
@@ -211,6 +218,7 @@ pub fn analyze_term(analysis: &Analysis, term: &Term) -> BlockAnalysisResult {
         Term::Name(n, _) => analyze_name(analysis, n.as_str()),
         Term::Branch(branch) => analyze_branch(analysis, branch),
         Term::Loop(loop_v) => analyze_loop(analysis, loop_v),
+        Term::Capture(..) => Ok((vec![Type::Unknown], vec![]).into()),
     }
 }
 
@@ -227,6 +235,7 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
         arities: AritiesByNamespace::new(),
         namespace: 0,
         program,
+        captures: HashMap::new(),
     };
 
     loop {
@@ -238,7 +247,7 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
                 if get_arity_at(&mut analysis.arities, i).contains_key(&func.name) {
                     continue;
                 }
-                match analyze_block(&analysis, &func.body) {
+                match analyze_block(&mut analysis, &func.body) {
                     Err(AnalysisError::Pending) => {}
                     e => {
                         resolved_something = true;
@@ -262,11 +271,12 @@ pub fn analyze_block_in_namespace(
     block: &Block,
     program: &Program,
 ) -> BlockAnalysisResult {
-    let analysis = Analysis {
+    let mut analysis = Analysis {
         arities: arities.clone(),
         namespace,
         program,
+        captures: HashMap::new(),
     };
 
-    analyze_block(&analysis, block)
+    analyze_block(&mut analysis, block)
 }
