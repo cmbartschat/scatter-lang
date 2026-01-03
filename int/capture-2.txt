@@ -1,0 +1,12 @@
+
+STDIN
+5 10
+~v1~
+v1 v1
+
+STDOUT
+[5, 10, 10]
+
+STDERR
+EXIT_CODE
+0

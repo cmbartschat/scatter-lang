@@ -1,6 +1,7 @@
 start_suite: { // suite_name -- fail_count logs
-  0 swap
-  ": " join
+  ~suite_name~
+  0
+  suite_name ": " join
 }
 
 end_suite: { // fail_count logs --
@@ -9,14 +10,23 @@ end_suite: { // fail_count logs --
 }
 
 fail: { // fail_count, logs -- fail_count, logs
-  swap ++ swap
+  ~fail_count logs~
+  fail_count ++ logs
 }
 
 should_equal: { // fail_count, logs, actual, expected -- fail_count, logs
-  over over ==
+  ~fail_count logs actual expected~
+  actual expected ==
   {
-    () drop drop "pass " join
-    (1) "` != `" swap join join "fail: `" swap join join "` " join fail
+    () fail_count logs "pass " join
+    (1)
+      fail_count ++ 
+      logs
+        "fail: `" join
+        expected join
+        "` != `" join
+        actual join
+        "` " join
   }
 }
 

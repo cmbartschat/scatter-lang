@@ -431,6 +431,9 @@ impl Repl {
                 if let Term::Name(n, _) = e.1 {
                     has_name = true;
                     n.len()
+                } else if let Term::Capture(n, _) = e.1 {
+                    has_name = true;
+                    n.len()
                 } else {
                     unknown.len()
                 }
@@ -464,6 +467,8 @@ impl Repl {
                     "{:max_name_width$} {}",
                     if let Term::Name(name, _) = term {
                         name
+                    } else if let Term::Capture(name, _) = term {
+                        name
                     } else {
                         unknown
                     },
@@ -473,6 +478,9 @@ impl Repl {
                 )?;
 
                 if let Term::Name(_, loc) = term {
+                    write!(res, ":{:?}", loc.start)?;
+                }
+                if let Term::Capture(_, loc) = term {
                     write!(res, ":{:?}", loc.start)?;
                 }
 

@@ -49,11 +49,7 @@ mod tests {
             cmd.write_stdin(self.stdin);
             let output = cmd.output().unwrap();
             let (stdout, stderr, exit_code) = (output.stdout, output.stderr, output.status);
-            assert_eq!(
-                exit_code.code().unwrap(),
-                self.exit_code,
-                "Incorrect exit code"
-            );
+
             if self.stderr != "*" {
                 assert_eq!(
                     String::from_utf8(stderr).unwrap(),
@@ -68,6 +64,12 @@ mod tests {
                     "Incorrect Stdout"
                 );
             }
+
+            assert_eq!(
+                exit_code.code().unwrap(),
+                self.exit_code,
+                "Incorrect exit code"
+            );
         }
     }
 
