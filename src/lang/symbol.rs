@@ -12,6 +12,7 @@ pub enum Symbol {
     LineEnd,
     Hash,
     At,
+    Tilde,
 }
 
 impl Debug for Symbol {
@@ -26,6 +27,7 @@ impl Debug for Symbol {
             Self::SquareClose => ']',
             Self::Hash => '#',
             Self::At => '@',
+            Self::Tilde => '~',
             Self::LineEnd => '␤',
         })
     }

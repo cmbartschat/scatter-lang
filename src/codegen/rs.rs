@@ -61,6 +61,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             });
         }
         Term::Loop(loop_t) => codegen_loop(ctx, loop_t)?,
+        Term::Capture(..) => todo!(),
     }
     Ok(())
 }

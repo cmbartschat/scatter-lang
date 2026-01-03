@@ -73,6 +73,7 @@ fn consume_block_terms(
                 Symbol::Hash | Symbol::Colon => {
                     return unexpected_symbol(s, loc.start);
                 }
+                Symbol::Tilde => parse_capture(tokens, target, &loc.start)?,
                 Symbol::At => match tokens.peek() {
                     Some(ParsedToken {
                         value: Token::Name(n),
@@ -181,6 +182,43 @@ fn parse_branch(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Bran
     }
 }
 
+fn parse_capture(
+    tokens: &mut Tokens,
+    target: &mut Vec<Term>,
+    start: &SourceLocation,
+) -> ParseResult<()> {
+    let mut captures = vec![];
+    loop {
+        match tokens.next() {
+            Some(ParsedToken {
+                value: Token::Name(s),
+                loc,
+            }) => {
+                captures.push(Term::Capture(s, loc));
+            }
+            Some(ParsedToken {
+                value: Token::Symbol(Symbol::Tilde),
+                ..
+            }) => break,
+            Some(ParsedToken {
+                value: Token::Symbol(s),
+                loc,
+            }) => {
+                return unexpected_symbol_in(s, loc.start, ParseSection::Capture, *start);
+            }
+            Some(ParsedToken { value: _, loc }) => {
+                return cannot_use_in(UnexpectedContext::Capture, *start, loc.start);
+            }
+            None => {
+                return unclosed(*start, WrappedExpression::Capture);
+            }
+        }
+    }
+
+    target.extend(captures.into_iter().rev());
+    Ok(())
+}
+
 fn parse_loop(tokens: &mut Tokens, start: &SourceLocation) -> ParseResult<Loop> {
     let mut loop_v = Loop {
         pre_condition: None,
@@ -254,6 +292,7 @@ fn parse_single_line(tokens: &mut Tokens) -> ParseResult<Block> {
                 | Symbol::Hash) => {
                     return unexpected_symbol(s, loc.start);
                 }
+                Symbol::Tilde => parse_capture(tokens, &mut target, &loc.start)?,
                 Symbol::At => match tokens.peek() {
                     Some(ParsedToken {
                         value: Token::Name(n),
@@ -399,6 +438,7 @@ fn parse_module(tokens: &mut Tokens) -> Result<Module, ParseError> {
             }
             Token::Symbol(s) => match s {
                 Symbol::LineEnd => {}
+                Symbol::Tilde => parse_capture(tokens, &mut module.body.terms, &loc.start)?,
                 Symbol::At => match tokens.peek() {
                     Some(ParsedToken {
                         value: Token::Name(n),

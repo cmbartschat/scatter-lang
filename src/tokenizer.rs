@@ -277,6 +277,7 @@ impl NormalParseState {
             '(' => Some(Symbol::ParenOpen),
             ')' => Some(Symbol::ParenClose),
             '[' => Some(Symbol::SquareOpen),
+            '~' => Some(Symbol::Tilde),
             ']' => Some(Symbol::SquareClose),
             '#' => Some(Symbol::Hash),
             '\n' => Some(Symbol::LineEnd),
