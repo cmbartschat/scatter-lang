@@ -487,5 +487,6 @@ pub fn parse(source: &str) -> ParseResult<Module> {
         .map_err(ParseError::Tokenization)?
         .into_iter()
         .peekable();
+    dbg!(&tokens);
     parse_module(&mut tokens)
 }

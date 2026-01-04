@@ -177,6 +177,7 @@ impl Repl {
             return Ok(());
         }
         if self.args.analyze {
+            dbg!(&self.program);
             let arities = analyze_program(&self.program);
             for func in &ast.functions {
                 report_arity(&func.name, arities[namespace].get(&func.name));
