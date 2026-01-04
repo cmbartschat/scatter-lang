@@ -63,13 +63,13 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
     }
 }
 
-pub fn analyze_condition(analysis: &mut Analysis, b: &Block) -> BlockAnalysisResult {
+pub fn analyze_condition<'a>(analysis: &mut Analysis<'a>, b: &'a Block) -> BlockAnalysisResult {
     let mut res = analyze_block(analysis, b)?;
     res.pop_any();
     Ok(res)
 }
 
-pub fn analyze_block(analysis: &mut Analysis, b: &Block) -> BlockAnalysisResult {
+pub fn analyze_block<'a>(analysis: &mut Analysis<'a>, b: &'a Block) -> BlockAnalysisResult {
     let mut a = Arity::noop();
     for term in &b.terms {
         a = Arity::serial(&a, &analyze_term(analysis, term)?)?;
@@ -78,17 +78,22 @@ pub fn analyze_block(analysis: &mut Analysis, b: &Block) -> BlockAnalysisResult 
 }
 
 fn analyze_name(analysis: &mut Analysis, n: &str) -> BlockAnalysisResult {
+    eprintln!("Looking for {n}");
+
     if let Some(arity) = get_intrinsic_arity(n)? {
+        eprintln!("{n} is an intrinsic");
         return Ok(arity.clone());
     }
 
     if let Some(x) = analysis.captures.get(n) {
+        eprintln!("Found {x:?} for {n}");
         return Ok(Arity::literal(*x));
     }
 
     let Some((resolved_namespace_id, resolved_name)) =
         analysis.program.resolve_function(analysis.namespace, n)
     else {
+        eprintln!("{n} is not a recognized function");
         return Err(AnalysisError::Pending);
     };
 
@@ -102,7 +107,7 @@ fn analyze_name(analysis: &mut Analysis, n: &str) -> BlockAnalysisResult {
     arity_result.clone()
 }
 
-fn analyze_branch(analysis: &mut Analysis, branch: &Branch) -> BlockAnalysisResult {
+fn analyze_branch<'a>(analysis: &mut Analysis<'a>, branch: &'a Branch) -> BlockAnalysisResult {
     let mut running = Arity::noop();
 
     let mut combined: Option<Arity> = None;
@@ -150,7 +155,7 @@ fn analyze_branch(analysis: &mut Analysis, branch: &Branch) -> BlockAnalysisResu
     Ok(combined.expect("Unable to combine branch arms"))
 }
 
-fn analyze_loop(analysis: &mut Analysis, loop_v: &Loop) -> BlockAnalysisResult {
+fn analyze_loop<'a>(analysis: &mut Analysis<'a>, loop_v: &'a Loop) -> BlockAnalysisResult {
     let pre_arity = if let Some(pre) = &loop_v.pre_condition {
         Some(analyze_condition(analysis, pre)?)
     } else {
@@ -209,7 +214,7 @@ fn analyze_loop(analysis: &mut Analysis, loop_v: &Loop) -> BlockAnalysisResult {
     Ok(possible_arity.expect("Must have filled possible_arity at least once"))
 }
 
-pub fn analyze_term(analysis: &mut Analysis, term: &Term) -> BlockAnalysisResult {
+pub fn analyze_term<'a>(analysis: &mut Analysis<'a>, term: &'a Term) -> BlockAnalysisResult {
     match term {
         Term::String(_) => Ok(Arity::literal(Type::String)),
         Term::Number(_) => Ok(Arity::literal(Type::Number)),
@@ -218,7 +223,10 @@ pub fn analyze_term(analysis: &mut Analysis, term: &Term) -> BlockAnalysisResult
         Term::Name(n, _) => analyze_name(analysis, n.as_str()),
         Term::Branch(branch) => analyze_branch(analysis, branch),
         Term::Loop(loop_v) => analyze_loop(analysis, loop_v),
-        Term::Capture(..) => Ok((vec![Type::Unknown], vec![]).into()),
+        Term::Capture(n, ..) => {
+            analysis.captures.insert(n.as_str(), Type::Unknown);
+            Ok((vec![Type::Unknown], vec![]).into())
+        }
     }
 }
 
