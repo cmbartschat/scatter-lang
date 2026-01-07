@@ -1,0 +1,20 @@
+-a
+STDIN
+fn1: swap
+fn2: swap ~i~
+fn3: swap ~i~ i
+fn4: swap ~i~ i i
+fn5: swap ~i~ i i ++
+fn6: swap ~i~ i i ++ substring
+
+STDOUT
+fn1: 1 0 - 0 1
+fn2: u 0 - 0
+fn3: 1 0 - 0 1
+fn4: 1 0 - 0 1 1
+fn5: n 0 - 0 n n
+fn6: n s - s
+
+STDERR
+EXIT_CODE
+0

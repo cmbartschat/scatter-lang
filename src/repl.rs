@@ -19,6 +19,7 @@ use crate::{
     program::{FunctionOverwriteStrategy, NamespaceId, NamespaceImport, Program},
 };
 
+<<<<<<<
 fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str> {
     match result {
         Some(Ok(arity)) => return arity.stringify().into(),
@@ -32,6 +33,11 @@ fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str>
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
     #![expect(clippy::print_stdout, reason = "reporting arity")]
     println!("{}: {}", label, report_arity_inner(result));
+=======
+        Some(Err(AnalysisError::MissingDeclaration)) => {
+            println!("{}: incompatible types", label);
+        }
+>>>>>>>
 }
 
 pub struct Repl {
@@ -177,7 +183,6 @@ impl Repl {
             return Ok(());
         }
         if self.args.analyze {
-            dbg!(&self.program);
             let arities = analyze_program(&self.program);
             for func in &ast.functions {
                 report_arity(&func.name, arities[namespace].get(&func.name));
@@ -305,9 +310,9 @@ impl Repl {
                             name,
                             report_arity(import.id, name)
                         );
-                    }
                 }
             }
+        }
         }
 
         println!("\nREPL commands:");

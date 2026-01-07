@@ -1,0 +1,24 @@
+-a
+STDIN
+fn1: ~a~ a a *
+fn2: dup ~a~ ~b~ a ++ print b
+fn3: v
+fn4: ~a~ {(a 0 >) "positive" ~a~ (1) "negative" ~a~} 0 1 substring
+fn5: 5 ~a~ 10 a +
+fn6: {() 5 ~a~ (1) "5" ~a~} a
+fn7: a ~a~
+fn8: a 1 ~a~
+
+STDOUT
+fn1: n - n
+fn2: n - n
+fn3: undefined variable: v
+fn4: n - s
+fn5: - n
+fn6: u - u
+fn7: undefined variable: a
+fn8: undefined variable: a
+
+STDERR
+EXIT_CODE
+0
