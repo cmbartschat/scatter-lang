@@ -74,6 +74,31 @@ mod tests {
             Arity::parse("u u - 0|1").unwrap(),
             Arity::generic_1(2, (0, 1))
         );
+
+        {
+            let source = "-";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "0 - 0 0";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "0 - 0 0, a: n";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "0 -, a: 0";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "- u, a: ?";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
     }
 
     #[test]

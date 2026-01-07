@@ -11,6 +11,7 @@ pub enum AnalysisError {
     IndefiniteSize,
     IncompatibleTypes,
     Pending,
+    MissingDeclaration(String),
 }
 
 impl From<ArityCombineError> for AnalysisError {
@@ -32,7 +33,6 @@ pub struct Analysis<'a> {
     pub arities: AritiesByNamespace,
     pub namespace: NamespaceId,
     pub program: &'a Program,
-    pub captures: HashMap<&'a str, Type>,
 }
 
 enum BlockTruthiness {
@@ -63,6 +63,19 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
     }
 }
 
+fn into_isolated(a: Arity) -> Result<Arity, AnalysisError> {
+    if !a.captures.waiting.is_empty() {
+        return Err(AnalysisError::MissingDeclaration(
+            a.captures.waiting.join(", "),
+        ));
+    }
+    Ok(Arity {
+        pushes: a.pushes,
+        pops: a.pops,
+        captures: Default::default(),
+    })
+}
+
 pub fn analyze_condition<'a>(analysis: &mut Analysis<'a>, b: &'a Block) -> BlockAnalysisResult {
     let mut res = analyze_block(analysis, b)?;
     res.pop_any();
@@ -78,23 +91,14 @@ pub fn analyze_block<'a>(analysis: &mut Analysis<'a>, b: &'a Block) -> BlockAnal
 }
 
 fn analyze_name(analysis: &mut Analysis, n: &str) -> BlockAnalysisResult {
-    eprintln!("Looking for {n}");
-
     if let Some(arity) = get_intrinsic_arity(n)? {
-        eprintln!("{n} is an intrinsic");
         return Ok(arity.clone());
-    }
-
-    if let Some(x) = analysis.captures.get(n) {
-        eprintln!("Found {x:?} for {n}");
-        return Ok(Arity::literal(*x));
     }
 
     let Some((resolved_namespace_id, resolved_name)) =
         analysis.program.resolve_function(analysis.namespace, n)
     else {
-        eprintln!("{n} is not a recognized function");
-        return Err(AnalysisError::Pending);
+        return Ok(Arity::recall(n.to_owned()));
     };
 
     let Some(Some(arity_result)) = analysis
@@ -223,10 +227,7 @@ pub fn analyze_term<'a>(analysis: &mut Analysis<'a>, term: &'a Term) -> BlockAna
         Term::Name(n, _) => analyze_name(analysis, n.as_str()),
         Term::Branch(branch) => analyze_branch(analysis, branch),
         Term::Loop(loop_v) => analyze_loop(analysis, loop_v),
-        Term::Capture(n, ..) => {
-            analysis.captures.insert(n.as_str(), Type::Unknown);
-            Ok((vec![Type::Unknown], vec![]).into())
-        }
+        Term::Capture(n, ..) => Ok(Arity::capture(n.to_owned())),
     }
 }
 
@@ -243,7 +244,6 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
         arities: AritiesByNamespace::new(),
         namespace: 0,
         program,
-        captures: HashMap::new(),
     };
 
     loop {
@@ -255,7 +255,10 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
                 if get_arity_at(&mut analysis.arities, i).contains_key(&func.name) {
                     continue;
                 }
-                match analyze_block(&mut analysis, &func.body) {
+                match analyze_block(&mut analysis, &func.body)
+                    .map(|e| into_isolated(e))
+                    .flatten()
+                {
                     Err(AnalysisError::Pending) => {}
                     e => {
                         resolved_something = true;
@@ -283,7 +286,6 @@ pub fn analyze_block_in_namespace(
         arities: arities.clone(),
         namespace,
         program,
-        captures: HashMap::new(),
     };
 
     analyze_block(&mut analysis, block)
