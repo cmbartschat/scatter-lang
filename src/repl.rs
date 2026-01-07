@@ -190,7 +190,7 @@ impl Repl {
             std::mem::swap(&mut snap, &mut self.snapshot);
             let interpreter = Interpreter::from_snapshot(snap, &self.program);
             self.snapshot = interpreter
-                .execute(&ast.body)
+                .execute(namespace, &ast.body)
                 .map_err(|e| self.try_stringify_backtrace(e.0, &e.1))?;
             Ok(())
         }

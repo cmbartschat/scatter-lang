@@ -19,6 +19,7 @@ pub type BacktraceItem<'a> = (NamespaceId, &'a Term);
 
 pub struct Interpreter<'a> {
     pub stack: Vec<Value<'a>>,
+    pub base_namespace: NamespaceId,
     pub namespace_stack: Vec<NamespaceId>,
     pub backtrace: Vec<BacktraceItem<'a>>,
     pub program: &'a Program,
@@ -39,6 +40,7 @@ impl<'a> Interpreter<'a> {
     pub fn from_snapshot(snapshot: InterpreterSnapshot, program: &'a Program) -> Self {
         Self {
             stack: snapshot.stack.into_iter().map(Into::into).collect(),
+            base_namespace: 0,
             namespace_stack: vec![],
             program,
             backtrace: Vec::with_capacity(64),
@@ -48,8 +50,10 @@ impl<'a> Interpreter<'a> {
 
     pub fn execute(
         mut self,
+        base_namespace: NamespaceId,
         block: &'a Block,
     ) -> Result<InterpreterSnapshot, (InterpreterError, Vec<BacktraceItem<'a>>)> {
+        self.base_namespace = base_namespace;
         let res = self.evaluate_block(block);
         res.map_err(|e| {
             let mut backtrace = Vec::new();
@@ -162,8 +166,7 @@ impl<'a> Interpreter<'a> {
     fn get_current_namespace(&self) -> usize {
         self.namespace_stack
             .last()
-            .map(std::borrow::ToOwned::to_owned)
-            .unwrap_or_default()
+            .map_or(self.base_namespace, std::borrow::ToOwned::to_owned)
     }
 
     fn evaluate_block(&mut self, block: &'a Block) -> InterpreterResult {

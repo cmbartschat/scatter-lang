@@ -12,7 +12,7 @@ mod tests {
 
     fn interpret(ast: &Module) -> Vec<OwnedValue> {
         Interpreter::begin(&Program::new_from_module(ast))
-            .execute(&ast.body)
+            .execute(0, &ast.body)
             .unwrap()
             .stack
     }
@@ -307,7 +307,7 @@ mod tests {
         );
 
         let interpreter = Interpreter::begin(&program);
-        let result = interpreter.execute(&main.body).unwrap().stack;
+        let result = interpreter.execute(0, &main.body).unwrap().stack;
         assert_eq!(result, vec![1.into(), 2.into(), 3.into()]);
     }
 
@@ -324,7 +324,7 @@ fn",
         .unwrap();
 
         let program = Program::new_from_module(&ast);
-        let actual = Interpreter::begin(&program).execute(&ast.body);
+        let actual = Interpreter::begin(&program).execute(0, &ast.body);
 
         let t1 = Term::Name(
             "fn".into(),

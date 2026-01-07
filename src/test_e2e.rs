@@ -29,7 +29,7 @@ mod tests {
     fn e2e() {
         let (ast, program) = get_e2e_program();
         let ctx = Interpreter::begin(&program);
-        assert_eq!(ctx.execute(&ast.body).unwrap().stack, vec![]);
+        assert_eq!(ctx.execute(0, &ast.body).unwrap().stack, vec![]);
     }
 
     static SKIPPED_INTRINSICS: [&str; 3] = ["assert", "print", "readline"];

@@ -1,0 +1,10 @@
+int/interpreter-9-1.sl
+int/interpreter-9-2.sl
+int/interpreter-9-2.sl
+STDIN
+STDOUT
+["hello world"]
+
+STDERR
+EXIT_CODE
+0
