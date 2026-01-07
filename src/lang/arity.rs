@@ -91,6 +91,7 @@ impl Iterator for MultiIndexIter<'_> {
 pub enum ResultantType {
     Normal(Type),
     Dependent(MultiIndex),
+    Recall(String),
 }
 
 impl From<Type> for ResultantType {
@@ -113,6 +114,7 @@ impl ResultantType {
                 }
                 str
             }
+            _ => todo!(),
         }
     }
 
@@ -133,6 +135,7 @@ impl ResultantType {
         match self {
             ResultantType::Normal(_) => false,
             ResultantType::Dependent(d) => d.contains(i),
+            _ => todo!(),
         }
     }
 
@@ -147,14 +150,22 @@ impl ResultantType {
                     a
                 }))
             }
+            _ => todo!(),
         }
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
+pub struct CaptureEffects {
+    pub defines: Vec<(String, ResultantType)>,
+    pub waiting: Vec<String>,
+}
+
+#[derive(Clone, PartialEq, Default)]
 pub struct Arity {
     pub pops: Vec<Type>,
     pub pushes: Vec<ResultantType>,
+    pub captures: CaptureEffects,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -165,16 +176,35 @@ pub enum ArityCombineError {
 
 impl Arity {
     pub fn noop() -> Self {
+        Self::default()
+    }
+
+    pub fn capture(name: String) -> Self {
+        Self {
+            pops: vec![Type::Unknown],
+            pushes: vec![],
+            captures: CaptureEffects {
+                defines: vec![(name, ResultantType::Dependent(0.into()))],
+                waiting: vec![],
+            },
+        }
+    }
+
+    pub fn recall(name: String) -> Self {
         Self {
             pops: vec![],
-            pushes: vec![],
+            pushes: vec![ResultantType::Recall(name.clone())],
+            captures: CaptureEffects {
+                defines: vec![],
+                waiting: vec![name],
+            },
         }
     }
 
     pub fn literal(r: Type) -> Self {
         Self {
-            pops: vec![],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -182,6 +212,7 @@ impl Arity {
         Self {
             pops: vec![a],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -189,13 +220,14 @@ impl Arity {
         Self {
             pops: vec![],
             pushes: vec![a.into(), b.into()],
+            ..Self::default()
         }
     }
 
     pub fn pop_two(a: Type, b: Type) -> Self {
         Self {
             pops: vec![b, a],
-            pushes: vec![],
+            ..Self::default()
         }
     }
 
@@ -203,6 +235,7 @@ impl Arity {
         Self {
             pops: vec![a, b],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -294,6 +327,7 @@ impl Arity {
                 }
                 Ok(term.into())
             }
+            _ => todo!(),
         }
     }
 
@@ -321,6 +355,7 @@ impl Arity {
                 }
                 running.push(first);
             }
+            _ => todo!(),
         });
 
         Ok(running)
@@ -344,7 +379,7 @@ impl Arity {
             res.push_str(&push.stringify());
         }
 
-        res
+        if self.captures.defines
     }
 
     pub fn extend_pops(&mut self) {
@@ -371,6 +406,7 @@ impl Arity {
                         *push = resolved_type.into();
                     }
                 }
+                _ => todo!(),
             }
         }
     }
@@ -433,7 +469,13 @@ impl Arity {
                 Some(acc)
             })?;
 
-        Some(Self { pops, pushes })
+        let captures = CaptureEffects::default();
+
+        Some(Self {
+            pops,
+            pushes,
+            captures,
+        })
     }
 }
 
@@ -448,6 +490,7 @@ impl From<(Vec<Type>, Vec<Type>)> for Arity {
         Self {
             pops: value.0,
             pushes: value.1.into_iter().map(Into::into).collect(),
+            ..Self::default()
         }
     }
 }
