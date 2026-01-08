@@ -16,7 +16,7 @@ use crate::{
     parse_error::ParseError,
     parser::parse,
     path::CanonicalPathBuf,
-    program::{NamespaceId, NamespaceImport, Program},
+    program::{FunctionOverwriteStrategy, NamespaceId, NamespaceImport, Program},
 };
 
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
@@ -85,6 +85,7 @@ impl Repl {
         ast: &Module,
         id: NamespaceId,
         context: &Path,
+        function_overwrite_strategy: FunctionOverwriteStrategy,
     ) -> ReplResult<()> {
         let mut imports = vec![];
         for import in &ast.imports {
@@ -103,7 +104,10 @@ impl Repl {
                 }
             }
         }
-        self.program.add_functions(id, &ast.functions);
+        self.program
+            .add_functions(id, &ast.functions, function_overwrite_strategy)
+            .map_err(|e| format!("Function redefinition error: {}", e))?;
+
         self.program.add_imports(id, imports);
 
         Ok(())
@@ -127,7 +131,12 @@ impl Repl {
             return Err("Unable to resolve file path context".into());
         };
 
-        self.prepare_code(&ast, id, context)?;
+        self.prepare_code(
+            &ast,
+            id,
+            context,
+            FunctionOverwriteStrategy::FailOnDuplicate,
+        )?;
         self.program.get_namespace_mut(id).path = Some(path.to_owned());
         Ok((id, ast))
     }
@@ -150,7 +159,7 @@ impl Repl {
                 return Err(Self::try_stringify_parse_error(None, e, &full_source));
             }
         };
-        self.prepare_code(&ast, id, base.as_path())?;
+        self.prepare_code(&ast, id, base.as_path(), FunctionOverwriteStrategy::Replace)?;
         self.consume_ast(id, &ast)
     }
 

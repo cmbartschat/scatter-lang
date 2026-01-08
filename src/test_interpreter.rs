@@ -8,7 +8,7 @@ mod tests {
         SourceRange, Term,
     };
     use crate::parser::parse;
-    use crate::program::{NamespaceImport, Program};
+    use crate::program::{FunctionOverwriteStrategy, NamespaceImport, Program};
 
     fn interpret(ast: &Module) -> Vec<OwnedValue> {
         Interpreter::begin(&Program::new_from_module(ast))
@@ -280,13 +280,31 @@ mod tests {
         let main_id = program.allocate_namespace();
 
         let helper1_id = program.allocate_namespace();
-        program.add_functions(helper1_id, &helper1.functions);
+        program
+            .add_functions(
+                helper1_id,
+                &helper1.functions,
+                FunctionOverwriteStrategy::FailOnDuplicate,
+            )
+            .unwrap();
 
         let helper2_id = program.allocate_namespace();
-        program.add_functions(helper2_id, &helper2.functions);
+        program
+            .add_functions(
+                helper2_id,
+                &helper2.functions,
+                FunctionOverwriteStrategy::FailOnDuplicate,
+            )
+            .unwrap();
 
         let helper3_id = program.allocate_namespace();
-        program.add_functions(helper3_id, &helper3.functions);
+        program
+            .add_functions(
+                helper3_id,
+                &helper3.functions,
+                FunctionOverwriteStrategy::FailOnDuplicate,
+            )
+            .unwrap();
 
         program.add_imports(
             main_id,

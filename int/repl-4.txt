@@ -1,0 +1,12 @@
+
+STDIN
+fn: 4
+fn
+fn: 5
+fn
+STDOUT
+[4, 5]
+
+STDERR
+EXIT_CODE
+0

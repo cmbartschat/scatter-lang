@@ -7,7 +7,7 @@ mod tests {
 
     use crate::lang::Module;
     use crate::parser::parse;
-    use crate::program::{NamespaceImport, Program};
+    use crate::program::{FunctionOverwriteStrategy, NamespaceImport, Program};
 
     struct SimpleAnalysis {
         arities: NamespaceArities,
@@ -630,17 +630,20 @@ fn: 0 3 substring
     fn get_multi_namespace_sample() -> Program {
         let mut program = Program::new();
         let helpers = program.allocate_namespace();
-        program.add_functions(
-            helpers,
-            &parse(
-                r#"
+        program
+            .add_functions(
+                helpers,
+                &parse(
+                    r#"
 fn: 0 3 substring
 fn2: "fn2"
      "#,
+                )
+                .unwrap()
+                .functions,
+                FunctionOverwriteStrategy::FailOnDuplicate,
             )
-            .unwrap()
-            .functions,
-        );
+            .unwrap();
 
         let other = program.allocate_namespace();
         program.add_imports(

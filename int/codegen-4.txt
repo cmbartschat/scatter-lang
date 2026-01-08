@@ -1,0 +1,10 @@
+-g
+c
+int/codegen-4.sl
+STDIN
+STDOUT
+STDERR
+Function redefinition error: fn
+
+EXIT_CODE
+1

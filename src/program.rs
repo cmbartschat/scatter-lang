@@ -26,6 +26,12 @@ pub struct Program {
     _x: (),
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum FunctionOverwriteStrategy {
+    FailOnDuplicate,
+    Replace,
+}
+
 impl Program {
     pub fn new() -> Self {
         Program {
@@ -41,7 +47,12 @@ impl Program {
             _x: (),
         };
         let id = res.allocate_namespace();
-        res.add_functions(id, &ast.functions);
+        res.add_functions(
+            id,
+            &ast.functions,
+            FunctionOverwriteStrategy::FailOnDuplicate,
+        )
+        .expect("Empty namespace should not have duplicates, source should not have duplicates");
         res
     }
 
@@ -58,12 +69,25 @@ impl Program {
         &self.namespaces[namespace]
     }
 
-    pub fn add_functions(&mut self, namespace: NamespaceId, functions: &[Function]) {
+    pub fn add_functions<'a>(
+        &mut self,
+        namespace: NamespaceId,
+        functions: &'a [Function],
+        overwrite_strategy: FunctionOverwriteStrategy,
+    ) -> Result<(), &'a str> {
         let namespace = &mut self.namespaces[namespace];
 
         for f in functions {
-            namespace.functions.insert(f.name.clone(), f.clone());
+            if namespace
+                .functions
+                .insert(f.name.clone(), f.clone())
+                .is_some()
+                && overwrite_strategy == FunctionOverwriteStrategy::FailOnDuplicate
+            {
+                return Err(f.name.as_str());
+            }
         }
+        Ok(())
     }
 
     pub fn add_imports(&mut self, namespace: NamespaceId, imports: Vec<NamespaceImport>) {

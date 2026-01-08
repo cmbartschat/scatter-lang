@@ -3,7 +3,7 @@ mod tests {
     use crate::codegen;
     use crate::intrinsics::{IntrinsicData, get_intrinsic_codegen_name, get_intrinsics};
     use crate::lang::{ImportNaming, Module};
-    use crate::program::{NamespaceImport, Program};
+    use crate::program::{FunctionOverwriteStrategy, NamespaceImport, Program};
     use crate::{interpreter::Interpreter, parser::parse};
 
     static TEST_HELPERS: &str = include_str!("../examples/test.sl");
@@ -14,7 +14,13 @@ mod tests {
         let ast = parse(E2E_TESTS).unwrap();
         let mut program = Program::new_from_module(&ast);
         let helpers_namespace = program.allocate_namespace();
-        program.add_functions(helpers_namespace, &helpers_ast.functions);
+        program
+            .add_functions(
+                helpers_namespace,
+                &helpers_ast.functions,
+                FunctionOverwriteStrategy::FailOnDuplicate,
+            )
+            .unwrap();
         program.add_imports(
             0,
             vec![NamespaceImport {
