@@ -1,0 +1,40 @@
+
+STDIN
+fn: 3 +
+list intrinsics
+exit
+STDOUT
+Intrinsics:
+  +         : n n - n
+  -         : n n - n
+  *         : n n - n
+  /         : n n - n
+  %         : n n - n
+  **        : n n - n
+  ||        : 1 0 - 0|1
+  &&        : 1 0 - 0|1
+  swap      : 1 0 - 0 1
+  dup       : 0 - 0 0
+  over      : 1 0 - 1 0 1
+  rot       : 2 1 0 - 1 0 2
+  drop      : u -
+  print     : u -
+  readline  : - s b
+  substring : s n n - s
+  to_char   : s - n
+  from_char : n - s
+  index     : s s - n
+  join      : u u - s
+  length    : s - n
+  assert    : u s -
+  eval      : -
+  >         : n n - b
+  <         : n n - b
+  !         : u - b
+  --        : n - n
+  ++        : n - n
+  ==        : u u - b
+
+STDERR
+EXIT_CODE
+0

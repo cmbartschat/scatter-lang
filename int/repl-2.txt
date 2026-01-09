@@ -3,46 +3,26 @@ STDIN
 # * "./examples/fibonacci.sl"
 # grade "./examples/grade.sl"
 # {fb} "./examples/fizzbuzz.sl"
+my_fb: fb
 list
 exit
 STDOUT
 Available functions:
-  fibonacci
-  grade.grade
-  fb
-Intrinsics:
-  +
-  -
-  *
-  /
-  %
-  **
-  ||
-  &&
-  swap
-  dup
-  over
-  rot
-  drop
-  print
-  readline
-  substring
-  to_char
-  from_char
-  index
-  join
-  length
-  assert
-  eval
-  >
-  <
-  !
-  --
-  ++
-  ==
+  my_fb          : n -
+
+  ╒════════════════════ Imported from: examples/fibonacci.sl
+  │ fibonacci    : n - n
+
+  ╒════════════════════ Imported from: examples/grade.sl
+  │ grade.grade  : n - s
+
+  ╒════════════════════ Imported from: examples/fizzbuzz.sl
+  │ fb           : n -
+
 REPL commands:
   exit
   list
+  list intrinsics
   clear
 
 STDERR

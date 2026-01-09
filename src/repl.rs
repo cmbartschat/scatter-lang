@@ -19,20 +19,19 @@ use crate::{
     program::{FunctionOverwriteStrategy, NamespaceId, NamespaceImport, Program},
 };
 
+fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str> {
+    match result {
+        Some(Ok(arity)) => return arity.stringify().into(),
+        Some(Err(AnalysisError::IndefiniteSize)) => "unbounded",
+        Some(Err(AnalysisError::Pending)) | None => "not resolved",
+        Some(Err(AnalysisError::IncompatibleTypes)) => "incompatible types",
+    }
+    .into()
+}
+
 fn report_arity(label: &str, result: Option<&BlockAnalysisResult>) {
     #![expect(clippy::print_stdout, reason = "reporting arity")]
-    match result {
-        Some(Ok(arity)) => println!("{}: {}", label, arity.stringify()),
-        Some(Err(AnalysisError::IndefiniteSize)) => {
-            println!("{}: unbounded", label);
-        }
-        Some(Err(AnalysisError::Pending)) | None => {
-            println!("{}: not resolved", label);
-        }
-        Some(Err(AnalysisError::IncompatibleTypes)) => {
-            println!("{}: incompatible types", label);
-        }
-    }
+    println!("{}: {}", label, report_arity_inner(result));
 }
 
 pub struct Repl {
@@ -214,38 +213,120 @@ impl Repl {
 
     pub fn list(&mut self, user_namespace: usize) {
         #![expect(clippy::print_stdout, reason = "listing functions")]
+
+        let analyze = analyze_program(&self.program);
+
         println!("Available functions:");
+
+        let report_arity = |ns: usize, name: &str| -> Cow<'static, str> {
+            report_arity_inner(analyze[ns].get(name))
+        };
+
+        let mut column_width: usize = 0;
+        column_width = column_width.max(
+            self.program.namespaces[user_namespace]
+                .functions
+                .keys()
+                .map(std::string::String::len)
+                .max()
+                .unwrap_or_default(),
+        );
+        for import in &self.program.namespaces[user_namespace].imports {
+            let max_len = match &import.naming {
+                ImportNaming::Wildcard => self.program.namespaces[import.id]
+                    .functions
+                    .keys()
+                    .map(std::string::String::len)
+                    .max()
+                    .unwrap_or_default(),
+                ImportNaming::Named(names) => names
+                    .iter()
+                    .map(std::string::String::len)
+                    .max()
+                    .unwrap_or_default(),
+                ImportNaming::Scoped(prefix) => {
+                    prefix.len()
+                        + 1
+                        + self.program.namespaces[import.id]
+                            .functions
+                            .keys()
+                            .map(std::string::String::len)
+                            .max()
+                            .unwrap_or_default()
+                }
+            };
+            column_width = column_width.max(4 + max_len);
+        }
+
         for name in self.program.namespaces[user_namespace].functions.keys() {
-            println!("  {name}");
+            println!(
+                "  {name:column_width$}: {}",
+                report_arity(user_namespace, name)
+            );
         }
         for import in &self.program.namespaces[user_namespace].imports {
+            let title = stringify_absolute_path(
+                self.program
+                    .get_namespace(import.id)
+                    .path
+                    .as_ref()
+                    .map(super::path::CanonicalPathBuf::as_path),
+            );
+
+            println!("\n  ╒{:═<20} Imported from: {title}", "",);
             match &import.naming {
                 ImportNaming::Wildcard => {
+                    let column_width = column_width.saturating_sub(2);
                     for name in self.program.namespaces[import.id].functions.keys() {
-                        println!("  {}", name);
+                        println!(
+                            "  │ {:column_width$}: {}",
+                            name,
+                            report_arity(import.id, name)
+                        );
                     }
                 }
                 ImportNaming::Named(names) => {
+                    let column_width = column_width.saturating_sub(2);
                     for name in names {
-                        println!("  {}", name);
+                        println!(
+                            "  │ {:column_width$}: {}",
+                            name,
+                            report_arity(import.id, name)
+                        );
                     }
                 }
                 ImportNaming::Scoped(prefix) => {
+                    let column_width = column_width.saturating_sub(2 + prefix.len() + 1);
+
                     for name in self.program.namespaces[import.id].functions.keys() {
-                        println!("  {prefix}.{}", name);
+                        println!(
+                            "  │ {prefix}.{:column_width$}: {}",
+                            name,
+                            report_arity(import.id, name)
+                        );
                     }
                 }
             }
         }
-        println!("Intrinsics:");
-        for IntrinsicData { name, .. } in get_intrinsics() {
-            println!("  {name}");
-        }
 
-        println!("REPL commands:");
+        println!("\nREPL commands:");
         println!("  exit");
         println!("  list");
+        println!("  list intrinsics");
         println!("  clear");
+    }
+
+    pub fn list_intrinsics() {
+        #![expect(clippy::print_stdout, reason = "listing functions")]
+        println!("Intrinsics:");
+        let column_width = 1 + get_intrinsics()
+            .iter()
+            .map(|f| f.name.len())
+            .max()
+            .unwrap_or_default();
+        for IntrinsicData { name, arity, .. } in get_intrinsics() {
+            println!("  {name:column_width$}: {}", arity.stringify());
+        }
     }
 
     fn write_prompt(&self, io: &mut StdoutLock) -> Result<(), std::io::Error> {
@@ -309,6 +390,7 @@ impl Repl {
                 Some(input) => match input.trim() {
                     "exit" => return Ok(()),
                     "list" => self.list(user_namespace),
+                    "list intrinsics" => Self::list_intrinsics(),
                     "clear" => self.snapshot.stack.clear(),
                     c => match (self.is_terminal, self.load_code(user_namespace, c)) {
                         (_, Ok(())) => {}

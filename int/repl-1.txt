@@ -5,40 +5,12 @@ list
 exit
 STDOUT
 Available functions:
-  fn
-Intrinsics:
-  +
-  -
-  *
-  /
-  %
-  **
-  ||
-  &&
-  swap
-  dup
-  over
-  rot
-  drop
-  print
-  readline
-  substring
-  to_char
-  from_char
-  index
-  join
-  length
-  assert
-  eval
-  >
-  <
-  !
-  --
-  ++
-  ==
+  fn: n - n
+
 REPL commands:
   exit
   list
+  list intrinsics
   clear
 
 STDERR

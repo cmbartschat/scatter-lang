@@ -206,7 +206,7 @@ type RawIntrinsic = (&'static str, Arity, Intrinsic);
 
 pub struct IntrinsicData {
     pub name: &'static str,
-    arity: Arity,
+    pub arity: Arity,
     pub func: Intrinsic,
 }
 
