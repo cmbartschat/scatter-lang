@@ -44,6 +44,11 @@ fn main() {
         std::process::exit(1);
     }
 
+    if args.generate.is_some() && args.analyze {
+        eprintln!("Cannot specify both -g/--generate and -a/--analyze");
+        std::process::exit(1);
+    }
+
     let repl = Repl::new(
         args,
         std::env::current_dir().expect("Could not get current directory"),

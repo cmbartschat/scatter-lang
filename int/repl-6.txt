@@ -1,0 +1,11 @@
+-a
+-g
+js
+examples/e2e.sl
+STDIN
+STDOUT
+STDERR
+Cannot specify both -g/--generate and -a/--analyze
+
+EXIT_CODE
+1
