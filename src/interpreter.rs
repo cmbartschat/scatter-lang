@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     io::{BufRead as _, StdinLock},
+    rc::Rc,
 };
 
 use crate::{
@@ -100,7 +101,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn take_string(&mut self) -> InterpreterValueResult<CharString<'a>> {
+    pub fn take_string(&mut self) -> InterpreterValueResult<Rc<CharString<'a>>> {
         if let Value::String(v) = self.take()? {
             Ok(v)
         } else {
@@ -237,7 +238,7 @@ impl<'a> Interpreter<'a> {
 
     fn evaluate_term(&mut self, term: &'a Term) -> InterpreterResult {
         match term {
-            Term::String(l) => self.push(Value::String(l.as_str().into())),
+            Term::String(l) => self.push(Value::String(Rc::new(l.as_str().into()))),
             Term::Number(l) => self.push(Value::Number(*l)),
             Term::Bool(l) => self.push(Value::Bool(*l)),
             Term::Name(name, _) => {

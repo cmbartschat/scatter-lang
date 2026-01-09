@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{rc::Rc, sync::OnceLock};
 
 use crate::{
     analyze::AnalysisError,
@@ -113,7 +113,7 @@ fn substring(i: &mut Interpreter) -> InterpreterResult {
     let original = i.take_string()?;
     let start = start.min(original.len());
     let end = end.min(original.len()).max(start);
-    i.push(Value::String(original.substring(start..end)))
+    i.push(Value::String(Rc::new(original.substring(start..end))))
 }
 
 fn join(i: &mut Interpreter) -> InterpreterResult {
@@ -142,7 +142,7 @@ fn from_char(i: &mut Interpreter) -> InterpreterResult {
     let Some(char) = f64_to_char(s) else {
         return Err("from_char only works with valid unicode codepoints".into());
     };
-    i.push(Value::String(CharString::from(char)))
+    i.push(Value::String(Rc::new(CharString::from(char))))
 }
 
 fn string_index(i: &mut Interpreter) -> InterpreterResult {
@@ -179,7 +179,7 @@ fn readline(i: &mut Interpreter) -> InterpreterResult {
         i.push(val)?;
         i.push(Value::Bool(true))
     } else {
-        i.push(Value::String("".into()))?;
+        i.push(Value::String(Rc::new("".into())))?;
         i.push(Value::Bool(false))
     }
 }

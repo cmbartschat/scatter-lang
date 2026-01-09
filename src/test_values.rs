@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use crate::lang::{OwnedValue, Value, string::CharString};
 
     #[test]
@@ -11,7 +13,10 @@ mod tests {
     #[test]
     fn debug() {
         assert_eq!("32", &format!("{:?}", Value::Number(32.)));
-        assert_eq!(r#""a\n""#, &format!("{:?}", Value::String("a\n".into())));
+        assert_eq!(
+            r#""a\n""#,
+            &format!("{:?}", Value::String(Rc::new("a\n".into())))
+        );
         assert_eq!(
             "Fn[3, test]",
             &format!("{:?}", Value::Address(3, "test".into()))
@@ -30,7 +35,7 @@ mod tests {
     #[test]
     fn display() {
         assert_eq!("32", &format!("{}", Value::Number(32.)));
-        assert_eq!("a\n", &format!("{}", Value::String("a\n".into())));
+        assert_eq!("a\n", &format!("{}", Value::String(Rc::new("a\n".into()))));
         assert_eq!(
             "Fn[3, test]",
             &format!("{}", Value::Address(3, "test".into()))

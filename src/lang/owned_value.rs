@@ -13,7 +13,7 @@ pub enum OwnedValue {
 impl From<Value<'_>> for OwnedValue {
     fn from(value: Value) -> Self {
         match value {
-            Value::String(v) => OwnedValue::String(v.into()),
+            Value::String(v) => OwnedValue::String(v.to_string()),
             Value::Number(v) => OwnedValue::Number(v),
             Value::Bool(v) => OwnedValue::Bool(v),
             Value::Address(n, name) => OwnedValue::Address(n, name),
@@ -24,7 +24,7 @@ impl From<Value<'_>> for OwnedValue {
 impl From<&OwnedValue> for Value<'_> {
     fn from(value: &OwnedValue) -> Self {
         match value {
-            OwnedValue::String(v) => Value::String(v.clone().into()),
+            OwnedValue::String(v) => v.as_str().into(),
             OwnedValue::Number(v) => Value::Number(*v),
             OwnedValue::Bool(v) => Value::Bool(*v),
             OwnedValue::Address(n, name) => Value::Address(*n, name.clone()),
@@ -35,9 +35,9 @@ impl From<&OwnedValue> for Value<'_> {
 impl<'a> From<OwnedValue> for Value<'a> {
     fn from(v: OwnedValue) -> Value<'a> {
         match v {
-            OwnedValue::String(v) => Value::String(v.into()),
-            OwnedValue::Number(v) => Value::Number(v),
-            OwnedValue::Bool(v) => Value::Bool(v),
+            OwnedValue::String(v) => v.into(),
+            OwnedValue::Number(v) => v.into(),
+            OwnedValue::Bool(v) => v.into(),
             OwnedValue::Address(n, name) => Value::Address(n, name),
         }
     }

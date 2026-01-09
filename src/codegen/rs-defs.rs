@@ -19,6 +19,7 @@ use std::{
     io::BufRead,
     marker::PhantomData,
     ops::{Index, Range},
+    rc::Rc,
 };
 
 type InterpreterError = Cow<'static, str>;
@@ -31,7 +32,7 @@ type Operation = fn(&mut Interpreter) -> InterpreterResult;
 
 #[derive(Clone)]
 enum Value {
-    String(CharString<'static>),
+    String(Rc<CharString<'static>>),
     Number(f64),
     Bool(bool),
     Address(&'static Operation),
@@ -71,13 +72,13 @@ impl Value {
 
 impl From<String> for Value {
     fn from(value: String) -> Self {
-        Self::String(value.into())
+        Self::String(Rc::new(value.into()))
     }
 }
 
-impl From<&'static str> for Value {
-    fn from(value: &'static str) -> Self {
-        Self::String(value.into())
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(Rc::new(value.into()))
     }
 }
 

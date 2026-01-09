@@ -1,10 +1,13 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 use crate::lang::string::{CharString, StringApi as _};
 
 #[derive(Clone, PartialEq)]
 pub enum Value<'a> {
-    String(CharString<'a>),
+    String(Rc<CharString<'a>>),
     Number(f64),
     Bool(bool),
     Address(usize, String),
@@ -41,7 +44,13 @@ impl From<f64> for Value<'_> {
 
 impl From<String> for Value<'_> {
     fn from(value: String) -> Self {
-        Value::String(value.into())
+        Value::String(Rc::new(value.into()))
+    }
+}
+
+impl From<&str> for Value<'_> {
+    fn from(value: &str) -> Self {
+        Value::String(Rc::new(value.into()))
     }
 }
 
