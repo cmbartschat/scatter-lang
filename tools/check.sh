@@ -36,7 +36,7 @@ echo " 8/$check_count unicode (Rust)"
   chmod +x gen/unicode.rs
   ./gen/unicode.rs > /dev/null 2>/dev/null
 
-echo "9/$check_count lint"
+echo " 9/$check_count lint"
   cargo clippy -q --all-targets
   cargo fmt --check
 
