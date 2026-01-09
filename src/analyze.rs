@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic_arity,
-    lang::{Arity, ArityCombineError, Block, Branch, Loop, Term, Type},
+    lang::{Arity, ArityCombineError, Block, Branch, CaptureEffects, Loop, Term, Type},
     program::{NamespaceId, Program},
 };
 
@@ -72,7 +72,7 @@ fn into_isolated(a: Arity) -> Result<Arity, AnalysisError> {
     Ok(Arity {
         pushes: a.pushes,
         pops: a.pops,
-        captures: Default::default(),
+        captures: CaptureEffects::default(),
     })
 }
 
@@ -255,10 +255,7 @@ pub fn analyze_program(program: &Program) -> AritiesByNamespace {
                 if get_arity_at(&mut analysis.arities, i).contains_key(&func.name) {
                     continue;
                 }
-                match analyze_block(&mut analysis, &func.body)
-                    .map(|e| into_isolated(e))
-                    .flatten()
-                {
+                match analyze_block(&mut analysis, &func.body).and_then(into_isolated) {
                     Err(AnalysisError::Pending) => {}
                     e => {
                         resolved_something = true;

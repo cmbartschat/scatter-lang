@@ -358,6 +358,10 @@ impl Arity {
             _ => todo!(),
         });
 
+        //     second.captures.defines.iter().for_each(|f| {
+        //     running.captures.defines.insert(index, element);
+        // });
+
         Ok(running)
     }
 
@@ -379,7 +383,7 @@ impl Arity {
             res.push_str(&push.stringify());
         }
 
-        if self.captures.defines
+        res
     }
 
     pub fn extend_pops(&mut self) {
