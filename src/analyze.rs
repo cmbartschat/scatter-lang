@@ -63,17 +63,20 @@ fn block_is_always_truthy(b: &Block) -> BlockTruthiness {
     }
 }
 
-fn into_isolated(a: Arity) -> Result<Arity, AnalysisError> {
-    if !a.captures.waiting.is_empty() {
-        return Err(AnalysisError::MissingDeclaration(
-            a.captures.waiting.join(", "),
-        ));
+fn into_isolated(mut a: Arity) -> Result<Arity, AnalysisError> {
+    let mut grabbed = CaptureEffects::default();
+    std::mem::swap(&mut grabbed, &mut a.captures);
+
+    let waiting = grabbed
+        .variables
+        .iter()
+        .filter(|e| e.1.expects)
+        .map(|e| e.0.to_owned())
+        .collect::<Vec<_>>();
+    if !waiting.is_empty() {
+        return Err(AnalysisError::MissingDeclaration(waiting.join(", ")));
     }
-    Ok(Arity {
-        pushes: a.pushes,
-        pops: a.pops,
-        captures: CaptureEffects::default(),
-    })
+    Ok(a)
 }
 
 pub fn analyze_condition<'a>(analysis: &mut Analysis<'a>, b: &'a Block) -> BlockAnalysisResult {
