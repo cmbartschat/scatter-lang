@@ -206,6 +206,10 @@ impl VariableEffect {
         }
     }
 
+    pub fn references(&self, i: usize) -> bool {
+        self.defines.as_ref().is_some_and(|f| f.0.references(i))
+    }
+
     fn maybe(&mut self) {
         if let Some(d) = &mut self.defines {
             d.1 = EffectCertainty::Sometimes;
@@ -471,7 +475,10 @@ impl Arity {
     pub fn stringify(&self) -> String {
         let mut res = String::new();
         for (i, pop) in self.pops.iter().enumerate().rev() {
-            if pop == &Type::Unknown && self.pushes.iter().any(|f| f.references(i)) {
+            let should_show_digit = pop == &Type::Unknown
+                && (self.pushes.iter().any(|f| f.references(i))
+                    || self.captures.variables.iter().any(|f| f.1.references(i)));
+            if should_show_digit {
                 write!(&mut res, "{i}").expect("Write error in Arity::stringify");
             } else {
                 res.push_str(pop.stringify());
@@ -572,7 +579,7 @@ impl Arity {
 
     #[allow(dead_code)]
     pub fn parse(source: &str) -> Option<Self> {
-        let mut comma_separated = source.split(',');
+        let mut comma_separated = source.split(',').map(str::trim);
         let (pops, pushes) = comma_separated.next()?.split_once('-')?;
         let pops = pops
             .split(' ')
@@ -611,7 +618,7 @@ impl Arity {
                     EffectCertainty::Always
                 };
 
-                let t = ResultantType::parse(rest)?;
+                let t = ResultantType::parse(rest.trim())?;
 
                 captures.variables.insert(
                     name.to_owned(),
