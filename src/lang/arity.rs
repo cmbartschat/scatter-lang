@@ -1,6 +1,6 @@
-use std::fmt::Write as _;
+use std::{collections::HashMap, fmt::Write as _};
 
-use crate::lang::Type;
+use crate::{analyze::AnalysisError, lang::Type};
 
 type Index = usize;
 
@@ -155,10 +155,121 @@ impl ResultantType {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum EffectCertainty {
+    Always,
+    Sometimes,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct VariableEffect {
+    pub expects: bool,
+    pub defines: Option<(ResultantType, EffectCertainty)>,
+}
+impl VariableEffect {
+    fn serial(&mut self, f: &VariableEffect) {
+        if f.expects
+            && self
+                .defines
+                .as_ref()
+                .is_none_or(|f| f.1 != EffectCertainty::Always)
+        {
+            self.expects = true;
+        }
+
+        if let Some(d2) = &f.defines {
+            if let Some(d1) = self.defines.as_mut() {
+                if d2.1 == EffectCertainty::Always {
+                    *d1 = d2.clone();
+                } else {
+                    d1.0 = d1.0.union(&d2.0);
+                }
+            } else {
+                self.defines = Some(d2.clone());
+            }
+        }
+    }
+
+    fn parallel(&mut self, right: &Self) {
+        self.expects = self.expects || right.expects;
+
+        match (&mut self.defines, &right.defines) {
+            (None, None) => {}
+            (None, Some(d)) => self.defines = Some((d.0.clone(), EffectCertainty::Sometimes)),
+            (Some(d), None) => d.1 = EffectCertainty::Sometimes,
+            (Some((d1, EffectCertainty::Always)), Some((d2, EffectCertainty::Always))) => {
+                self.defines = Some((d1.union(d2), EffectCertainty::Always));
+            }
+            (Some((d1, _)), Some((d2, _))) => {
+                self.defines = Some((d1.union(d2), EffectCertainty::Sometimes));
+            }
+        }
+    }
+
+    fn maybe(&mut self) {
+        if let Some(d) = &mut self.defines {
+            d.1 = EffectCertainty::Sometimes;
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Default)]
 pub struct CaptureEffects {
-    pub defines: Vec<(String, ResultantType)>,
-    pub waiting: Vec<String>,
+    pub variables: HashMap<String, VariableEffect>,
+}
+
+impl CaptureEffects {
+    pub fn defines(v: String, t: ResultantType) -> Self {
+        let mut res = Self::default();
+
+        res.variables.insert(
+            v,
+            VariableEffect {
+                expects: false,
+                defines: Some((t, EffectCertainty::Always)),
+            },
+        );
+        res
+    }
+
+    pub fn expects(v: String) -> Self {
+        let mut res = Self::default();
+
+        res.variables.insert(
+            v,
+            VariableEffect {
+                expects: true,
+                defines: None,
+            },
+        );
+        res
+    }
+
+    pub fn serial(&mut self, right: &Self) {
+        right.variables.iter().for_each(|(name, right_effect)| {
+            if let Some(f) = self.variables.get_mut(name) {
+                f.serial(right_effect);
+            }
+        });
+    }
+
+    pub fn parallel(&mut self, right: &Self) {
+        self.variables.iter_mut().for_each(|(name, f)| {
+            if let Some(right_effect) = right.variables.get(name) {
+                f.parallel(right_effect);
+            } else {
+                f.maybe();
+            }
+        });
+
+        right.variables.iter().for_each(|(name, f)| {
+            if (!self.variables.contains_key(name)) {
+                let mut s = f.clone();
+                s.maybe();
+                self.variables.insert(name.clone(), s);
+            }
+        });
+    }
 }
 
 #[derive(Clone, PartialEq, Default)]
@@ -183,10 +294,7 @@ impl Arity {
         Self {
             pops: vec![Type::Unknown],
             pushes: vec![],
-            captures: CaptureEffects {
-                defines: vec![(name, ResultantType::Dependent(0.into()))],
-                waiting: vec![],
-            },
+            captures: CaptureEffects::defines(name, ResultantType::Dependent(0.into())),
         }
     }
 
@@ -194,10 +302,7 @@ impl Arity {
         Self {
             pops: vec![],
             pushes: vec![ResultantType::Recall(name.clone())],
-            captures: CaptureEffects {
-                defines: vec![],
-                waiting: vec![name],
-            },
+            captures: CaptureEffects::expects(name),
         }
     }
 
@@ -358,9 +463,7 @@ impl Arity {
             _ => todo!(),
         });
 
-        //     second.captures.defines.iter().for_each(|f| {
-        //     running.captures.defines.insert(index, element);
-        // });
+        running.captures.serial(&second.captures);
 
         Ok(running)
     }
@@ -382,6 +485,22 @@ impl Arity {
             res.push(' ');
             res.push_str(&push.stringify());
         }
+
+        self.captures.variables.iter().for_each(|(name, defs)| {
+            res.push_str(", ");
+            if defs.expects {
+                res.push('>');
+            }
+            res.push_str(name);
+            if let Some(def) = &defs.defines {
+                res.push(':');
+                res.push_str(def.0.stringify().as_ref());
+                match def.1 {
+                    EffectCertainty::Always => {}
+                    EffectCertainty::Sometimes => res.push('?'),
+                }
+            }
+        });
 
         res
     }
@@ -453,7 +572,8 @@ impl Arity {
 
     #[allow(dead_code)]
     pub fn parse(source: &str) -> Option<Self> {
-        let (pops, pushes) = source.split_once('-')?;
+        let mut comma_separated = source.split(',');
+        let (pops, pushes) = comma_separated.next()?.split_once('-')?;
         let pops = pops
             .split(' ')
             .rev()
@@ -473,7 +593,43 @@ impl Arity {
                 Some(acc)
             })?;
 
-        let captures = CaptureEffects::default();
+        let mut captures = CaptureEffects::default();
+
+        for mut section in comma_separated {
+            let expects = if section.starts_with('>') {
+                section = &section[1..];
+                true
+            } else {
+                false
+            };
+
+            if let Some((name, mut rest)) = section.split_once(':') {
+                let frequency = if rest.ends_with('?') {
+                    rest = &rest[0..(rest.len().saturating_sub(1))];
+                    EffectCertainty::Sometimes
+                } else {
+                    EffectCertainty::Always
+                };
+
+                let t = ResultantType::parse(rest)?;
+
+                captures.variables.insert(
+                    name.to_owned(),
+                    VariableEffect {
+                        expects,
+                        defines: Some((t, frequency)),
+                    },
+                );
+            } else {
+                captures.variables.insert(
+                    section.to_owned(),
+                    VariableEffect {
+                        expects,
+                        defines: None,
+                    },
+                );
+            }
+        }
 
         Some(Self {
             pops,

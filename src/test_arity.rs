@@ -99,6 +99,16 @@ mod tests {
             let source = "- u, a: ?";
             assert_eq!(Arity::parse(source).unwrap().stringify(), source);
         }
+
+        {
+            let source = "0 -, a: 0?";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "- u, a: u?";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
     }
 
     #[test]
