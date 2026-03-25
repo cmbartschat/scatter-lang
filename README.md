@@ -463,7 +463,7 @@ Errors display a descriptive message and cause the program to terminate with a n
 
 ## Code Generation
 
-In addition to the interpreted mode, Scatter source code can be converted to source code in other languages. Javascript and C are currently supported. The code will be outputted to stdout so the code can either be directed to a file, or piped directly into node for example.
+In addition to the interpreted mode, Scatter source code can be converted to source code in other languages. Javascript, C, and Rust are currently supported. The code will be outputted to stdout so the code can either be directed to a file, or piped directly into node for example.
 
 ```bash
 scatter --generate js examples/fizzbuzz.sl | node
@@ -473,4 +473,10 @@ scatter --generate js examples/fizzbuzz.sl | node
 scatter --generate c examples/fizzbuzz.sl > /tmp/fizzbuzz.c
 gcc -o /tmp/fizzbuzz /tmp/fizzbuzz.c
 /tmp/fizzbuzz
+```
+
+```bash
+scatter --generate rs  ./examples/fizzbuzz.sl > /tmp/fizzbuzz.rs
+chmod +x /tmp/fizzbuzz.rs
+/tmp/fizzbuzz.rs
 ```
