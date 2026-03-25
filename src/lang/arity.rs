@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Write as _};
 
-use crate::{analyze::AnalysisError, lang::Type};
+use crate::lang::Type;
 
 type Index = usize;
 
@@ -104,6 +104,7 @@ impl ResultantType {
     pub fn stringify(&self) -> String {
         match self {
             ResultantType::Normal(t) => t.stringify().into(),
+            ResultantType::Recall(name) => format!("~{name}~"),
             ResultantType::Dependent(d) => {
                 let mut str = String::new();
                 for t in d.iter() {
@@ -114,7 +115,6 @@ impl ResultantType {
                 }
                 str
             }
-            _ => todo!(),
         }
     }
 
@@ -267,7 +267,7 @@ impl CaptureEffects {
         });
 
         right.variables.iter().for_each(|(name, f)| {
-            if (!self.variables.contains_key(name)) {
+            if !self.variables.contains_key(name) {
                 let mut s = f.clone();
                 s.maybe();
                 self.variables.insert(name.clone(), s);
@@ -464,7 +464,10 @@ impl Arity {
                 }
                 running.push(first);
             }
-            _ => todo!(),
+            ResultantType::Recall(e) => {
+                running.captures.serial(&CaptureEffects::expects(e.clone()));
+                running.push(ResultantType::Recall(e.clone()));
+            }
         });
 
         running.captures.serial(&second.captures);
@@ -536,7 +539,9 @@ impl Arity {
                         *push = resolved_type.into();
                     }
                 }
-                _ => todo!(),
+                ResultantType::Recall(_) => {
+                    eprintln!("skipping resolve_dependents for recall type");
+                }
             }
         }
     }
@@ -573,6 +578,10 @@ impl Arity {
         for (i, t) in left.pushes.iter().enumerate() {
             res.pushes.push(t.union(&right.pushes[i]));
         }
+
+        // todo
+        res.captures = left.captures.clone();
+        res.captures.parallel(&right.captures);
 
         Ok(res)
     }
