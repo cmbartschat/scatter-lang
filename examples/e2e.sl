@@ -383,4 +383,14 @@ multiline_comment_single multiline_comment_single * 9 should_equal
 "/*hello*/" length 9 should_equal
 end_suite
 
+check_variables: {
+  "variables" start_suite
+  1 2 3 ~var1 var2~  1 should_equal
+  var1 2 should_equal
+  var2 3 should_equal
+  end_suite
+}
+
+check_variables
+
 "all passed." print
