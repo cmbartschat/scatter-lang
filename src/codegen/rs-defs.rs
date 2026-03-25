@@ -9,7 +9,7 @@ codegen-units = 1
 panic = "abort"
 debug = 0
 strip = true
-rustflags = ["-Aunused"]
+rustflags = ["-Aunused", "-Anonstandard_style"]
 ---
 
 use std::borrow::Cow;
