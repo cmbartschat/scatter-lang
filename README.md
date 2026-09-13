@@ -1,3 +1,5 @@
+<p align="center"><img src="./docs/logo.svg" width="64" height="64" alt="logo"></p>
+
 # Scatter
 
 Experimental stack based programming language
