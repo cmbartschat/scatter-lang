@@ -135,7 +135,7 @@ impl ResultantType {
         match self {
             ResultantType::Normal(_) => false,
             ResultantType::Dependent(d) => d.contains(i),
-            _ => todo!(),
+            _ => todo!("check if recall references an input"),
         }
     }
 
@@ -150,7 +150,7 @@ impl ResultantType {
                     a
                 }))
             }
-            _ => todo!(),
+            _ => todo!("union of recall"),
         }
     }
 }
@@ -436,7 +436,7 @@ impl Arity {
                 }
                 Ok(term.into())
             }
-            _ => todo!(),
+            _ => todo!("pop recall"),
         }
     }
 
@@ -579,7 +579,6 @@ impl Arity {
             res.pushes.push(t.union(&right.pushes[i]));
         }
 
-        // todo
         res.captures = left.captures.clone();
         res.captures.parallel(&right.captures);
 
@@ -657,7 +656,7 @@ impl Arity {
 
 impl std::fmt::Debug for Arity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", &self.stringify())
+        write!(f, "{}", self.stringify())
     }
 }
 

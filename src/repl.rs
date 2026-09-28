@@ -276,7 +276,7 @@ impl Repl {
                     .map(super::path::CanonicalPathBuf::as_path),
             );
 
-            println!("\n  ╒{:═<20} Imported from: {title}", "",);
+            println!("\n  ╒{:═<20} Imported from: {title}", "");
             match &import.naming {
                 ImportNaming::Wildcard => {
                     let column_width = column_width.saturating_sub(2);
