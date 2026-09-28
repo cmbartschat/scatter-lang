@@ -36,7 +36,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
         Term::Capture(n, _) => {
             let name = ctx.resolve_variable_name(n)?;
             ctx.target
-                .write_line(&format!("var {name} = STATE.values.pop();",));
+                .write_line(&format!("var {name} = STATE.values.pop();"));
         }
         Term::Address(name) => ctx
             .target

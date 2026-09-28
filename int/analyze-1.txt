@@ -17,6 +17,7 @@ constant: - n
 double_increment: n - n
 noop: -
 multiline_comment_single: - n
+check_variables: -
 <body>: unbounded
 
 STDERR

@@ -26,7 +26,7 @@ fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str>
         Some(Err(AnalysisError::Pending)) | None => "not resolved",
         Some(Err(AnalysisError::IncompatibleTypes)) => "incompatible types",
         Some(Err(AnalysisError::MissingDeclaration(a))) => {
-            return format!("variable {a} is not defined").into();
+            return format!("undefined variable or function: {a}").into();
         }
     }
     .into()

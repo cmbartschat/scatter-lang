@@ -8,6 +8,7 @@ fn5: 5 ~a~ 10 a +
 fn6: {() 5 ~a~ (1) "5" ~a~} a
 fn7: a ~a~
 fn8: a 1 ~a~
+fn9: ~a~ from_char
 
 STDOUT
 fn1: n - n
@@ -18,6 +19,7 @@ fn5: - n
 fn6: u - u
 fn7: undefined variable: a
 fn8: undefined variable: a
+fn9: s - n
 
 STDERR
 EXIT_CODE
