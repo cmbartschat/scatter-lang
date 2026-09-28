@@ -1,8 +1,5 @@
 use crate::{
-    codegen::{
-        context::{CodegenContext, CodegenResult, CodegenResultG},
-        target::CodegenTarget,
-    },
+    codegen::context::{CodegenContext, CodegenResult, CodegenResultG},
     lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -38,11 +35,11 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
         Term::Bool(false) => ctx.target.write_line("c.push(false)?;"),
         Term::Address(a) => ctx.target.write_line(&format!(
             "c.push(&({} as Operation))?;",
-            ctx.resolve_name(a)?
+            ctx.resolve_function_name(a)?
         )),
         Term::Name(n, _) => ctx
             .target
-            .write_line(&format!("{}(c)?;", ctx.resolve_name(n)?)),
+            .write_line(&format!("{}(c)?;", ctx.resolve_function_name(n)?)),
         Term::Branch(branch) => {
             branch.arms.iter().try_for_each(|arm| -> CodegenResult {
                 codegen_block(ctx, &arm.0)?;
@@ -88,11 +85,7 @@ pub fn rs_codegen_module(
     main_namespace: NamespaceId,
     main: &Block,
 ) -> CodegenResultG<String> {
-    let mut ctx = CodegenContext {
-        namespace: 0,
-        program,
-        target: CodegenTarget::default(),
-    };
+    let mut ctx = CodegenContext::new(program);
 
     let definitions = {
         let definition_start = INTERPRETER
