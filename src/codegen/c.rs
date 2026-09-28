@@ -1,5 +1,5 @@
 use crate::{
-    codegen::context::{CodegenContext, CodegenResult, CodegenResultG},
+    codegen::context::{CodegenContext, CodegenResult, CodegenResultG, ResolvedName},
     lang::{Block, Function, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -50,9 +50,12 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             .write_line(&format!("checked(push_number_literal({}L));", e)),
         Term::Bool(true) => ctx.target.write_line("checked(push_true_literal());"),
         Term::Bool(false) => ctx.target.write_line("checked(push_false_literal());"),
-        Term::Name(n, _) => ctx
-            .target
-            .write_line(&format!("checked({}());", ctx.resolve_function_name(n)?)),
+        Term::Name(n, _) => match ctx.resolve_name(n)? {
+            ResolvedName::Function(n) => ctx.target.write_line(&format!("checked({n}());")),
+            ResolvedName::Variable(n) => ctx
+                .target
+                .write_line(&format!("checked(load_variable(&{n}));")),
+        },
         Term::Address(n) => ctx.target.write_line(&format!(
             "checked(push_fn_address(&{}));",
             ctx.resolve_function_name(n)?
@@ -77,7 +80,11 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             });
         }
         Term::Loop(loop_t) => codegen_loop(ctx, loop_t)?,
-        Term::Capture(..) => todo!(),
+        Term::Capture(n, _) => {
+            let name = ctx.resolve_variable_name(n)?;
+            ctx.target
+                .write_line(&format!("checked(assign_variable(&{name}));"));
+        }
     }
     Ok(())
 }
@@ -92,13 +99,18 @@ fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) -> CodegenRe
             .write_line(&format!("status_t {}(void) {{ return OK; }}", name));
         return Ok(());
     }
+    ctx.load_vars(body);
     ctx.target
         .write_line(&format!("status_t {}(void) {{", name));
     ctx.target.increase_indent();
+    ctx.vars.iter().for_each(|(_, name)| {
+        ctx.target.write_line(&format!("value_t {name} = 0;"));
+    });
     codegen_block(ctx, body)?;
     ctx.target.write_line("return OK;");
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
+    ctx.clear_vars();
     Ok(())
 }
 

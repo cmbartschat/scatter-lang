@@ -34,10 +34,9 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
         Term::Bool(true) => ctx.target.write_line("push(true)"),
         Term::Bool(false) => ctx.target.write_line("push(false)"),
         Term::Capture(n, _) => {
-            ctx.target.write_line(&format!(
-                "var {} = STATE.values.pop();",
-                ctx.resolve_variable_name(n)?
-            ));
+            let name = ctx.resolve_variable_name(n)?;
+            ctx.target
+                .write_line(&format!("var {name} = STATE.values.pop();",));
         }
         Term::Address(name) => ctx
             .target

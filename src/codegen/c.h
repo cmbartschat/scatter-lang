@@ -457,6 +457,22 @@ status_t drop(void) {
   return OK;
 }
 
+status_t assign_variable(value_t *target) {
+  assert_stack_has(1);
+  dec_ref_count(*target);
+  *target = stack_at(-1);
+  STATE.value_count--;
+  return OK;
+}
+
+status_t load_variable(value_t *target) {
+  assert_stack_capacity(1);
+  inc_ref_count(*target);
+  stack_at(0) = *target;
+  STATE.value_count++;
+  return OK;
+}
+
 status_t length(void) {
   assert_stack_has(1);
   stack_read_string(source, -1);
