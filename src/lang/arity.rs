@@ -133,9 +133,8 @@ impl ResultantType {
 
     pub fn references(&self, i: usize) -> bool {
         match self {
-            ResultantType::Normal(_) => false,
+            ResultantType::Normal(_) | ResultantType::Recall(..) => false,
             ResultantType::Dependent(d) => d.contains(i),
-            _ => todo!("check if recall references an input"),
         }
     }
 
@@ -439,8 +438,12 @@ impl Arity {
                 Ok(term.into())
             }
             (Some(ResultantType::Recall(d)), Type::Unknown) => Ok(ResultantType::Recall(d)),
-            (Some(ResultantType::Recall(_)), _) => {
-                todo!("Recall with type expectation variable")
+            (Some(ResultantType::Recall(n)), _) => {
+                if let Some(effect) = self.captures.variables.get(n) {
+                    todo!("Recall with effect defined");
+                } else {
+                    todo!("Recall without effect defined");
+                }
             }
         }
     }
