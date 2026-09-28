@@ -1,5 +1,5 @@
 use crate::{
-    codegen::context::{CodegenContext, CodegenResult, CodegenResultG},
+    codegen::context::{CodegenContext, CodegenResult, CodegenResultG, ResolvedName},
     lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -37,9 +37,10 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             "c.push(&({} as Operation))?;",
             ctx.resolve_function_name(a)?
         )),
-        Term::Name(n, _) => ctx
-            .target
-            .write_line(&format!("{}(c)?;", ctx.resolve_function_name(n)?)),
+        Term::Name(n, _) => match ctx.resolve_name(n)? {
+            ResolvedName::Function(e) => ctx.target.write_line(&format!("{e}(c)?;")),
+            ResolvedName::Variable(e) => ctx.target.write_line(&format!("c.push({e})?;")),
+        },
         Term::Branch(branch) => {
             branch.arms.iter().try_for_each(|arm| -> CodegenResult {
                 codegen_block(ctx, &arm.0)?;
@@ -58,7 +59,10 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             });
         }
         Term::Loop(loop_t) => codegen_loop(ctx, loop_t)?,
-        Term::Capture(..) => todo!(),
+        Term::Capture(n, _) => {
+            let name = ctx.resolve_variable_name(n)?;
+            ctx.target.write_line(&format!("{name} = c.take()?;"));
+        }
     }
     Ok(())
 }
@@ -68,15 +72,20 @@ fn codegen_block(ctx: &mut CodegenContext, block: &Block) -> CodegenResult {
 }
 
 fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) -> CodegenResult {
+    ctx.load_vars(body);
     ctx.target.write_line(&format!(
         "fn {}(c: &mut Interpreter) -> InterpreterResult {{",
         name
     ));
     ctx.target.increase_indent();
+    ctx.vars.iter().for_each(|(_, name)| {
+        ctx.target.write_line(&format!("let mut {name};"));
+    });
     codegen_block(ctx, body)?;
     ctx.target.write_line("Ok(())");
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
+    ctx.clear_vars();
     Ok(())
 }
 
