@@ -104,7 +104,7 @@ impl ResultantType {
     pub fn stringify(&self) -> String {
         match self {
             ResultantType::Normal(t) => t.stringify().into(),
-            ResultantType::Recall(name) => format!("~{name}~"),
+            ResultantType::Recall(name) => format!("@{name}"),
             ResultantType::Dependent(d) => {
                 let mut str = String::new();
                 for t in d.iter() {
@@ -253,6 +253,8 @@ impl CaptureEffects {
         right.variables.iter().for_each(|(name, right_effect)| {
             if let Some(f) = self.variables.get_mut(name) {
                 f.serial(right_effect);
+            } else {
+                self.variables.insert(name.clone(), right_effect.clone());
             }
         });
     }
@@ -436,7 +438,10 @@ impl Arity {
                 }
                 Ok(term.into())
             }
-            _ => todo!("pop recall"),
+            (Some(ResultantType::Recall(d)), Type::Unknown) => Ok(ResultantType::Recall(d)),
+            (Some(ResultantType::Recall(_)), _) => {
+                todo!("Recall with type expectation variable")
+            }
         }
     }
 

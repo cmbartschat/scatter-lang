@@ -591,9 +591,19 @@ fn: {
         assert_fn_err(
             r"
 fn: {
-  [(fn1) print]
+  0
+  [(fn1) 1 +]
+  print
 }
      ",
+            AnalysisError::MissingDeclaration("fn1".into()),
+        );
+    }
+
+    #[test]
+    fn unresolved_5() {
+        assert_fn_err(
+            r"fn: fn1 drop",
             AnalysisError::MissingDeclaration("fn1".into()),
         );
     }
@@ -672,7 +682,7 @@ fn2: "fn2"
         let program = get_multi_namespace_sample();
         let analysis = analyze_program(&program);
         let ast = parse("fn2: {fn1} 'hi' fn2").unwrap();
-        let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program);
-        assert_eq!(&actual, &Err(AnalysisError::Pending));
+        let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program).unwrap();
+        assert_eq!(&actual.stringify(), "- s ~j~");
     }
 }
