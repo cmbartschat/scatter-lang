@@ -86,22 +86,22 @@ mod tests {
         }
 
         {
-            let source = "0 - 0 0, a:n";
+            let source = "0 - 0 0, a>";
             assert_eq!(Arity::parse(source).unwrap().stringify(), source);
         }
 
         {
-            let source = "0 -, a:0";
+            let source = "0 - 0, a?";
+            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
+        }
+
+        {
+            let source = "0 - 0, >a?";
             assert_eq!(Arity::parse(source).unwrap().stringify(), source);
         }
 
         {
             let source = "- u, >a";
-            assert_eq!(Arity::parse(source).unwrap().stringify(), source);
-        }
-
-        {
-            let source = "0 -, a:0?";
             assert_eq!(Arity::parse(source).unwrap().stringify(), source);
         }
 

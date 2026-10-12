@@ -683,6 +683,6 @@ fn2: "fn2"
         let analysis = analyze_program(&program);
         let ast = parse("'hi' var1").unwrap();
         let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program).unwrap();
-        assert_eq!(&actual.stringify(), "- s @var1, >var1");
+        assert_eq!(&actual.stringify(), "- s u, >var1");
     }
 }

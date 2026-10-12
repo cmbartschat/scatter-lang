@@ -10,10 +10,10 @@ fn6: swap ~i~ i i ++ substring
 STDOUT
 fn1: 1 0 - 0 1
 fn2: u 0 - 0
-fn3: 1 0 - 0 1
-fn4: 1 0 - 0 1 1
-fn5: n 0 - 0 n n
-fn6: n s - s
+fn3: u 0 - 0 u
+fn4: u 0 - 0 u u
+fn5: incompatible types
+fn6: incompatible types
 
 STDERR
 EXIT_CODE
