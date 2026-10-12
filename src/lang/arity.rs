@@ -101,10 +101,24 @@ impl From<Type> for ResultantType {
 }
 
 impl ResultantType {
-    pub fn stringify(&self) -> String {
+    pub fn stringify(&self, _a: &Arity) -> String {
         match self {
             ResultantType::Normal(t) => t.stringify().into(),
-            ResultantType::Recall(name) => format!("@{name}"),
+            ResultantType::Recall(name) => {
+                // let Some(effect) = a.captures.variables.get(name) else {
+                format!("@{name}")
+                // };
+
+                // if effect.expects {
+                //     todo!("Visualizing effect that expects input");
+                // }
+
+                // let Some(defines) = &effect.defines else {
+                //     todo!("Visualizing effect that doesn't define anything");
+                // };
+
+                // defines.0.stringify(a)
+            }
             ResultantType::Dependent(d) => {
                 let mut str = String::new();
                 for t in d.iter() {
@@ -133,9 +147,8 @@ impl ResultantType {
 
     pub fn references(&self, i: usize) -> bool {
         match self {
-            ResultantType::Normal(_) => false,
+            ResultantType::Normal(_) | ResultantType::Recall(..) => false,
             ResultantType::Dependent(d) => d.contains(i),
-            _ => todo!("check if recall references an input"),
         }
     }
 
@@ -289,6 +302,7 @@ pub struct Arity {
 pub enum ArityCombineError {
     DifferingSizes,
     IncompatibleTypes,
+    VariableNotAlwaysDefined(String),
 }
 
 impl Arity {
@@ -423,7 +437,7 @@ impl Arity {
                 Ok(ResultantType::Dependent((self.pops.len() - 1).into()))
             }
             (Some(ResultantType::Dependent(i)), Type::Unknown) => Ok(ResultantType::Dependent(i)),
-            (Some(ResultantType::Dependent(i)), _) => {
+            (Some(ResultantType::Dependent(i)), term) => {
                 for x in i.iter() {
                     if term.assignable_to(self.pops[x]) {
                         for push in &mut self.pushes {
@@ -439,8 +453,33 @@ impl Arity {
                 Ok(term.into())
             }
             (Some(ResultantType::Recall(d)), Type::Unknown) => Ok(ResultantType::Recall(d)),
-            (Some(ResultantType::Recall(_)), _) => {
-                todo!("Recall with type expectation variable")
+            (Some(ResultantType::Recall(n)), _term) => {
+                // TODO: This logic is quite sus
+                if let Some(effect) = self.captures.variables.get(&n) {
+                    if effect.expects {
+                        if let Some(defines) = &effect.defines {
+                            if defines.1 == EffectCertainty::Always {
+                                Ok(defines.0.clone())
+                            } else {
+                                Err(ArityCombineError::VariableNotAlwaysDefined(n.clone()))
+                            }
+                        } else {
+                            todo!("Recall expects and doesn't define");
+                        }
+                    } else {
+                        if let Some(defines) = &effect.defines {
+                            if defines.1 == EffectCertainty::Always {
+                                Ok(defines.0.clone())
+                            } else {
+                                Err(ArityCombineError::VariableNotAlwaysDefined(n.clone()))
+                            }
+                        } else {
+                            todo!("Recall doesn't define");
+                        }
+                    }
+                } else {
+                    todo!("Recall without effect defined");
+                }
             }
         }
     }
@@ -498,7 +537,7 @@ impl Arity {
 
         for push in &self.pushes {
             res.push(' ');
-            res.push_str(&push.stringify());
+            res.push_str(&push.stringify(self));
         }
 
         self.captures.variables.iter().for_each(|(name, defs)| {
@@ -509,7 +548,7 @@ impl Arity {
             res.push_str(name);
             if let Some(def) = &defs.defines {
                 res.push(':');
-                res.push_str(def.0.stringify().as_ref());
+                res.push_str(def.0.stringify(self).as_ref());
                 match def.1 {
                     EffectCertainty::Always => {}
                     EffectCertainty::Sometimes => res.push('?'),
@@ -545,7 +584,7 @@ impl Arity {
                     }
                 }
                 ResultantType::Recall(_) => {
-                    eprintln!("skipping resolve_dependents for recall type");
+                    todo!("skipping resolve_dependents for recall type");
                 }
             }
         }

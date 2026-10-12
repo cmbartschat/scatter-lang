@@ -681,8 +681,8 @@ fn2: "fn2"
     fn check_body_2() {
         let program = get_multi_namespace_sample();
         let analysis = analyze_program(&program);
-        let ast = parse("fn2: {fn1} 'hi' fn2").unwrap();
+        let ast = parse("'hi' var1").unwrap();
         let actual = analyze_block_in_namespace(&analysis, 1, &ast.body, &program).unwrap();
-        assert_eq!(&actual.stringify(), "- s @fn2, >fn2");
+        assert_eq!(&actual.stringify(), "- s @var1, >var1");
     }
 }

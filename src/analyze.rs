@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic_arity,
-    lang::{Arity, ArityCombineError, Block, Branch, CaptureEffects, Loop, Term, Type},
+    lang::{
+        Arity, ArityCombineError, Block, Branch, CaptureEffects, Loop, ResultantType, Term, Type,
+    },
     program::{NamespaceId, Program},
 };
 
@@ -12,6 +14,7 @@ pub enum AnalysisError {
     IncompatibleTypes,
     Pending,
     MissingDeclaration(String),
+    VariableNotAlwaysDefined(String),
 }
 
 impl From<ArityCombineError> for AnalysisError {
@@ -19,6 +22,7 @@ impl From<ArityCombineError> for AnalysisError {
         match value {
             ArityCombineError::DifferingSizes => Self::IndefiniteSize,
             ArityCombineError::IncompatibleTypes => Self::IncompatibleTypes,
+            ArityCombineError::VariableNotAlwaysDefined(n) => Self::VariableNotAlwaysDefined(n),
         }
     }
 }
@@ -76,6 +80,16 @@ fn into_isolated(mut a: Arity) -> Result<Arity, AnalysisError> {
     if !waiting.is_empty() {
         return Err(AnalysisError::MissingDeclaration(waiting.join(", ")));
     }
+
+    let has_dependent_variables = a.pushes.iter().any(|e| match e {
+        ResultantType::Normal(_) | ResultantType::Dependent(_) => false,
+        ResultantType::Recall(_) => true,
+    });
+
+    if has_dependent_variables {
+        todo!("Resolve captures into dependent types");
+    }
+
     Ok(a)
 }
 
@@ -120,15 +134,7 @@ fn analyze_branch<'a>(analysis: &mut Analysis<'a>, branch: &'a Branch) -> BlockA
     let mut combined: Option<Arity> = None;
     let mut add_termination = |a: Arity| -> Result<(), AnalysisError> {
         combined = Some(if let Some(before) = combined.take() {
-            match Arity::parallel(&before, &a) {
-                Ok(n) => n,
-                Err(ArityCombineError::DifferingSizes) => {
-                    return Err(AnalysisError::IndefiniteSize);
-                }
-                Err(ArityCombineError::IncompatibleTypes) => {
-                    return Err(AnalysisError::IncompatibleTypes);
-                }
-            }
+            Arity::parallel(&before, &a)?
         } else {
             a
         });

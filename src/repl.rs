@@ -25,6 +25,9 @@ fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str>
         Some(Err(AnalysisError::IndefiniteSize)) => "unbounded",
         Some(Err(AnalysisError::Pending)) | None => "not resolved",
         Some(Err(AnalysisError::IncompatibleTypes)) => "incompatible types",
+        Some(Err(AnalysisError::VariableNotAlwaysDefined(a))) => {
+            return format!("variable not always defined: {a}").into();
+        }
         Some(Err(AnalysisError::MissingDeclaration(a))) => {
             return format!("undefined variable or function: {a}").into();
         }
