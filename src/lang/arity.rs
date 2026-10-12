@@ -91,7 +91,6 @@ impl Iterator for MultiIndexIter<'_> {
 pub enum ResultantType {
     Normal(Type),
     Dependent(MultiIndex),
-    Recall(String),
 }
 
 impl From<Type> for ResultantType {
@@ -104,21 +103,6 @@ impl ResultantType {
     pub fn stringify(&self, _a: &Arity) -> String {
         match self {
             ResultantType::Normal(t) => t.stringify().into(),
-            ResultantType::Recall(name) => {
-                // let Some(effect) = a.captures.variables.get(name) else {
-                format!("@{name}")
-                // };
-
-                // if effect.expects {
-                //     todo!("Visualizing effect that expects input");
-                // }
-
-                // let Some(defines) = &effect.defines else {
-                //     todo!("Visualizing effect that doesn't define anything");
-                // };
-
-                // defines.0.stringify(a)
-            }
             ResultantType::Dependent(d) => {
                 let mut str = String::new();
                 for t in d.iter() {
@@ -147,7 +131,7 @@ impl ResultantType {
 
     pub fn references(&self, i: usize) -> bool {
         match self {
-            ResultantType::Normal(_) | ResultantType::Recall(..) => false,
+            ResultantType::Normal(_) => false,
             ResultantType::Dependent(d) => d.contains(i),
         }
     }
@@ -163,7 +147,6 @@ impl ResultantType {
                     a
                 }))
             }
-            _ => todo!("union of recall"),
         }
     }
 }
@@ -172,61 +155,51 @@ impl ResultantType {
 pub enum EffectCertainty {
     Always,
     Sometimes,
+    Never,
+}
+
+impl EffectCertainty {
+    #[must_use]
+    pub fn max(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Always, _) | (_, Self::Always) => Self::Always,
+            (Self::Sometimes, _) | (_, Self::Sometimes) => Self::Sometimes,
+            (Self::Never, Self::Never) => Self::Never,
+        }
+    }
+
+    #[must_use]
+    pub fn min(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Never, _) | (_, Self::Never) => Self::Never,
+            (Self::Sometimes, _) | (_, Self::Sometimes) => Self::Sometimes,
+            (Self::Always, Self::Always) => Self::Always,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
 pub struct VariableEffect {
     pub expects: bool,
-    pub defines: Option<(ResultantType, EffectCertainty)>,
+    pub defines: EffectCertainty,
 }
+
 impl VariableEffect {
     fn serial(&mut self, f: &VariableEffect) {
-        if f.expects
-            && self
-                .defines
-                .as_ref()
-                .is_none_or(|f| f.1 != EffectCertainty::Always)
-        {
+        if f.expects && self.defines != EffectCertainty::Always {
             self.expects = true;
         }
 
-        if let Some(d2) = &f.defines {
-            if let Some(d1) = self.defines.as_mut() {
-                if d2.1 == EffectCertainty::Always {
-                    *d1 = d2.clone();
-                } else {
-                    d1.0 = d1.0.union(&d2.0);
-                }
-            } else {
-                self.defines = Some(d2.clone());
-            }
-        }
+        self.defines = self.defines.max(f.defines);
     }
 
     fn parallel(&mut self, right: &Self) {
         self.expects = self.expects || right.expects;
-
-        match (&mut self.defines, &right.defines) {
-            (None, None) => {}
-            (None, Some(d)) => self.defines = Some((d.0.clone(), EffectCertainty::Sometimes)),
-            (Some(d), None) => d.1 = EffectCertainty::Sometimes,
-            (Some((d1, EffectCertainty::Always)), Some((d2, EffectCertainty::Always))) => {
-                self.defines = Some((d1.union(d2), EffectCertainty::Always));
-            }
-            (Some((d1, _)), Some((d2, _))) => {
-                self.defines = Some((d1.union(d2), EffectCertainty::Sometimes));
-            }
-        }
-    }
-
-    pub fn references(&self, i: usize) -> bool {
-        self.defines.as_ref().is_some_and(|f| f.0.references(i))
+        self.defines = self.defines.min(right.defines);
     }
 
     fn maybe(&mut self) {
-        if let Some(d) = &mut self.defines {
-            d.1 = EffectCertainty::Sometimes;
-        }
+        self.defines = self.defines.min(EffectCertainty::Never);
     }
 }
 
@@ -236,14 +209,14 @@ pub struct CaptureEffects {
 }
 
 impl CaptureEffects {
-    pub fn defines(v: String, t: ResultantType) -> Self {
+    pub fn defines(v: String) -> Self {
         let mut res = Self::default();
 
         res.variables.insert(
             v,
             VariableEffect {
                 expects: false,
-                defines: Some((t, EffectCertainty::Always)),
+                defines: EffectCertainty::Always,
             },
         );
         res
@@ -256,7 +229,7 @@ impl CaptureEffects {
             v,
             VariableEffect {
                 expects: true,
-                defines: None,
+                defines: EffectCertainty::Never,
             },
         );
         res
@@ -302,7 +275,6 @@ pub struct Arity {
 pub enum ArityCombineError {
     DifferingSizes,
     IncompatibleTypes,
-    VariableNotAlwaysDefined(String),
 }
 
 impl Arity {
@@ -314,14 +286,14 @@ impl Arity {
         Self {
             pops: vec![Type::Unknown],
             pushes: vec![],
-            captures: CaptureEffects::defines(name, ResultantType::Dependent(0.into())),
+            captures: CaptureEffects::defines(name),
         }
     }
 
     pub fn recall(name: String) -> Self {
         Self {
             pops: vec![],
-            pushes: vec![ResultantType::Recall(name.clone())],
+            pushes: vec![Type::Unknown.into()],
             captures: CaptureEffects::expects(name),
         }
     }
@@ -452,35 +424,6 @@ impl Arity {
                 }
                 Ok(term.into())
             }
-            (Some(ResultantType::Recall(d)), Type::Unknown) => Ok(ResultantType::Recall(d)),
-            (Some(ResultantType::Recall(n)), _term) => {
-                // TODO: This logic is quite sus
-                if let Some(effect) = self.captures.variables.get(&n) {
-                    if effect.expects {
-                        if let Some(defines) = &effect.defines {
-                            if defines.1 == EffectCertainty::Always {
-                                Ok(defines.0.clone())
-                            } else {
-                                Err(ArityCombineError::VariableNotAlwaysDefined(n.clone()))
-                            }
-                        } else {
-                            todo!("Recall expects and doesn't define");
-                        }
-                    } else {
-                        if let Some(defines) = &effect.defines {
-                            if defines.1 == EffectCertainty::Always {
-                                Ok(defines.0.clone())
-                            } else {
-                                Err(ArityCombineError::VariableNotAlwaysDefined(n.clone()))
-                            }
-                        } else {
-                            todo!("Recall doesn't define");
-                        }
-                    }
-                } else {
-                    todo!("Recall without effect defined");
-                }
-            }
         }
     }
 
@@ -508,10 +451,6 @@ impl Arity {
                 }
                 running.push(first);
             }
-            ResultantType::Recall(e) => {
-                running.captures.serial(&CaptureEffects::expects(e.clone()));
-                running.push(ResultantType::Recall(e.clone()));
-            }
         });
 
         running.captures.serial(&second.captures);
@@ -522,10 +461,7 @@ impl Arity {
     pub fn stringify(&self) -> String {
         let mut res = String::new();
         for (i, pop) in self.pops.iter().enumerate().rev() {
-            let should_show_digit = pop == &Type::Unknown
-                && (self.pushes.iter().any(|f| f.references(i))
-                    || self.captures.variables.iter().any(|f| f.1.references(i)));
-            if should_show_digit {
+            if pop == &Type::Unknown && self.pushes.iter().any(|f| f.references(i)) {
                 write!(&mut res, "{i}").expect("Write error in Arity::stringify");
             } else {
                 res.push_str(pop.stringify());
@@ -546,13 +482,10 @@ impl Arity {
                 res.push('>');
             }
             res.push_str(name);
-            if let Some(def) = &defs.defines {
-                res.push(':');
-                res.push_str(def.0.stringify(self).as_ref());
-                match def.1 {
-                    EffectCertainty::Always => {}
-                    EffectCertainty::Sometimes => res.push('?'),
-                }
+            match defs.defines {
+                EffectCertainty::Always => res.push('>'),
+                EffectCertainty::Sometimes => res.push('?'),
+                EffectCertainty::Never => {}
             }
         });
 
@@ -582,9 +515,6 @@ impl Arity {
                     if let Some(resolved_type) = resolved_type {
                         *push = resolved_type.into();
                     }
-                }
-                ResultantType::Recall(_) => {
-                    todo!("skipping resolve_dependents for recall type");
                 }
             }
         }
@@ -662,32 +592,19 @@ impl Arity {
                 false
             };
 
-            if let Some((name, mut rest)) = section.split_once(':') {
-                let frequency = if rest.ends_with('?') {
-                    rest = &rest[0..(rest.len().saturating_sub(1))];
-                    EffectCertainty::Sometimes
-                } else {
-                    EffectCertainty::Always
-                };
-
-                let t = ResultantType::parse(rest.trim())?;
-
-                captures.variables.insert(
-                    name.to_owned(),
-                    VariableEffect {
-                        expects,
-                        defines: Some((t, frequency)),
-                    },
-                );
+            let defines = if section.ends_with('?') {
+                section = &section[0..(section.len().saturating_sub(1))];
+                EffectCertainty::Sometimes
+            } else if section.ends_with('>') {
+                section = &section[0..(section.len().saturating_sub(1))];
+                EffectCertainty::Always
             } else {
-                captures.variables.insert(
-                    section.to_owned(),
-                    VariableEffect {
-                        expects,
-                        defines: None,
-                    },
-                );
-            }
+                EffectCertainty::Never
+            };
+
+            captures
+                .variables
+                .insert(section.to_owned(), VariableEffect { expects, defines });
         }
 
         Some(Self {

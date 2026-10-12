@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     intrinsics::get_intrinsic_arity,
-    lang::{
-        Arity, ArityCombineError, Block, Branch, CaptureEffects, Loop, ResultantType, Term, Type,
-    },
+    lang::{Arity, ArityCombineError, Block, Branch, CaptureEffects, Loop, Term, Type},
     program::{NamespaceId, Program},
 };
 
@@ -14,7 +12,6 @@ pub enum AnalysisError {
     IncompatibleTypes,
     Pending,
     MissingDeclaration(String),
-    VariableNotAlwaysDefined(String),
 }
 
 impl From<ArityCombineError> for AnalysisError {
@@ -22,7 +19,6 @@ impl From<ArityCombineError> for AnalysisError {
         match value {
             ArityCombineError::DifferingSizes => Self::IndefiniteSize,
             ArityCombineError::IncompatibleTypes => Self::IncompatibleTypes,
-            ArityCombineError::VariableNotAlwaysDefined(n) => Self::VariableNotAlwaysDefined(n),
         }
     }
 }
@@ -79,15 +75,6 @@ fn into_isolated(mut a: Arity) -> Result<Arity, AnalysisError> {
         .collect::<Vec<_>>();
     if !waiting.is_empty() {
         return Err(AnalysisError::MissingDeclaration(waiting.join(", ")));
-    }
-
-    let has_dependent_variables = a.pushes.iter().any(|e| match e {
-        ResultantType::Normal(_) | ResultantType::Dependent(_) => false,
-        ResultantType::Recall(_) => true,
-    });
-
-    if has_dependent_variables {
-        todo!("Resolve captures into dependent types");
     }
 
     Ok(a)
