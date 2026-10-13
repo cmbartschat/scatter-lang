@@ -457,7 +457,7 @@ status_t drop(void) {
   return OK;
 }
 
-status_t assign_variable(value_t *target) {
+status_t capture_variable(value_t *target) {
   assert_stack_has(1);
   dec_ref_count(*target);
   *target = stack_at(-1);
@@ -465,7 +465,7 @@ status_t assign_variable(value_t *target) {
   return OK;
 }
 
-status_t load_variable(value_t *target) {
+status_t recall_variable(value_t *target) {
   assert_stack_capacity(1);
   inc_ref_count(*target);
   stack_at(0) = *target;

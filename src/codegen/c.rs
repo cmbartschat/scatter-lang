@@ -54,7 +54,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
             ResolvedName::Function(n) => ctx.target.write_line(&format!("checked({n}());")),
             ResolvedName::Variable(n) => ctx
                 .target
-                .write_line(&format!("checked(load_variable(&{n}));")),
+                .write_line(&format!("checked(recall_variable(&{n}));")),
         },
         Term::Address(n) => ctx.target.write_line(&format!(
             "checked(push_fn_address(&{}));",
@@ -83,7 +83,7 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
         Term::Capture(n, _) => {
             let name = ctx.resolve_variable_name(n)?;
             ctx.target
-                .write_line(&format!("checked(assign_variable(&{name}));"));
+                .write_line(&format!("checked(capture_variable(&{name}));"));
         }
     }
     Ok(())
@@ -108,6 +108,9 @@ fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) -> CodegenRe
     });
     codegen_block(ctx, body)?;
     ctx.target.write_line("return OK;");
+    ctx.vars.iter().for_each(|(_, name)| {
+        ctx.target.write_line(&format!("dec_ref_count({name});"));
+    });
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
     ctx.clear_vars();
