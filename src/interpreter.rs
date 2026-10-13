@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    collections::HashMap,
     io::{BufRead as _, StdinLock},
     rc::Rc,
 };
@@ -25,11 +26,13 @@ pub struct Interpreter<'a> {
     pub backtrace: Vec<BacktraceItem<'a>>,
     pub program: &'a Program,
     input: StdinLock<'static>,
+    captures: HashMap<String, Value<'a>>,
 }
 
 #[derive(Default, Debug, PartialEq)]
 pub struct InterpreterSnapshot {
     pub stack: Vec<OwnedValue>,
+    captures: HashMap<String, OwnedValue>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -46,6 +49,11 @@ impl<'a> Interpreter<'a> {
             program,
             backtrace: Vec::with_capacity(64),
             input: std::io::stdin().lock(),
+            captures: snapshot
+                .captures
+                .into_iter()
+                .map(|(k, v)| (k, v.into()))
+                .collect(),
         }
     }
 
@@ -67,6 +75,11 @@ impl<'a> Interpreter<'a> {
         );
         Ok(InterpreterSnapshot {
             stack: self.stack.into_iter().map(Into::into).collect(),
+            captures: self
+                .captures
+                .into_iter()
+                .map(|(k, v)| (k, v.into()))
+                .collect(),
         })
     }
 
@@ -193,6 +206,11 @@ impl<'a> Interpreter<'a> {
             return func(self);
         }
 
+        if let Some(v) = self.captures.get(name) {
+            self.stack.push(v.clone());
+            return Ok(());
+        }
+
         let Some((resolved_namespace, resolved_name)) =
             self.program.resolve_function(current_namespace, name)
         else {
@@ -251,6 +269,15 @@ impl<'a> Interpreter<'a> {
             Term::Branch(b) => self.evaluate_branch(b),
             Term::Loop(l) => self.evaluate_loop(l),
             Term::Address(s) => self.store_address(s),
+            Term::Capture(s, _) => {
+                if let Some(v) = self.stack.pop() {
+                    self.captures.insert(s.clone(), v);
+                    Ok(())
+                } else {
+                    self.backtrace.push((self.get_current_namespace(), term));
+                    Err("No values on stack to use in capture".into())
+                }
+            }
         }
     }
 }

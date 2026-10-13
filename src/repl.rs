@@ -25,6 +25,9 @@ fn report_arity_inner(result: Option<&BlockAnalysisResult>) -> Cow<'static, str>
         Some(Err(AnalysisError::IndefiniteSize)) => "unbounded",
         Some(Err(AnalysisError::Pending)) | None => "not resolved",
         Some(Err(AnalysisError::IncompatibleTypes)) => "incompatible types",
+        Some(Err(AnalysisError::MissingDeclaration(a))) => {
+            return format!("undefined variable or function: {a}").into();
+        }
     }
     .into()
 }
@@ -273,7 +276,7 @@ impl Repl {
                     .map(super::path::CanonicalPathBuf::as_path),
             );
 
-            println!("\n  ╒{:═<20} Imported from: {title}", "",);
+            println!("\n  ╒{:═<20} Imported from: {title}", "");
             match &import.naming {
                 ImportNaming::Wildcard => {
                     let column_width = column_width.saturating_sub(2);
@@ -431,6 +434,9 @@ impl Repl {
                 if let Term::Name(n, _) = e.1 {
                     has_name = true;
                     n.len()
+                } else if let Term::Capture(n, _) = e.1 {
+                    has_name = true;
+                    n.len()
                 } else {
                     unknown.len()
                 }
@@ -464,6 +470,8 @@ impl Repl {
                     "{:max_name_width$} {}",
                     if let Term::Name(name, _) = term {
                         name
+                    } else if let Term::Capture(name, _) = term {
+                        name
                     } else {
                         unknown
                     },
@@ -473,6 +481,9 @@ impl Repl {
                 )?;
 
                 if let Term::Name(_, loc) = term {
+                    write!(res, ":{:?}", loc.start)?;
+                }
+                if let Term::Capture(_, loc) = term {
                     write!(res, ":{:?}", loc.start)?;
                 }
 

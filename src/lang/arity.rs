@@ -1,4 +1,4 @@
-use std::fmt::Write as _;
+use std::{collections::HashMap, fmt::Write as _};
 
 use crate::lang::Type;
 
@@ -100,7 +100,7 @@ impl From<Type> for ResultantType {
 }
 
 impl ResultantType {
-    pub fn stringify(&self) -> String {
+    pub fn stringify(&self, _a: &Arity) -> String {
         match self {
             ResultantType::Normal(t) => t.stringify().into(),
             ResultantType::Dependent(d) => {
@@ -151,10 +151,124 @@ impl ResultantType {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum EffectCertainty {
+    Always,
+    Sometimes,
+    Never,
+}
+
+impl EffectCertainty {
+    #[must_use]
+    pub fn max(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Always, _) | (_, Self::Always) => Self::Always,
+            (Self::Sometimes, _) | (_, Self::Sometimes) => Self::Sometimes,
+            (Self::Never, Self::Never) => Self::Never,
+        }
+    }
+
+    #[must_use]
+    pub fn min(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Never, _) | (_, Self::Never) => Self::Never,
+            (Self::Sometimes, _) | (_, Self::Sometimes) => Self::Sometimes,
+            (Self::Always, Self::Always) => Self::Always,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
+pub struct VariableEffect {
+    pub expects: bool,
+    pub defines: EffectCertainty,
+}
+
+impl VariableEffect {
+    fn serial(&mut self, f: &VariableEffect) {
+        if f.expects && self.defines != EffectCertainty::Always {
+            self.expects = true;
+        }
+
+        self.defines = self.defines.max(f.defines);
+    }
+
+    fn parallel(&mut self, right: &Self) {
+        self.expects = self.expects || right.expects;
+        self.defines = self.defines.min(right.defines);
+    }
+
+    fn maybe(&mut self) {
+        self.defines = self.defines.min(EffectCertainty::Never);
+    }
+}
+
+#[derive(Clone, PartialEq, Default)]
+pub struct CaptureEffects {
+    pub variables: HashMap<String, VariableEffect>,
+}
+
+impl CaptureEffects {
+    pub fn defines(v: String) -> Self {
+        let mut res = Self::default();
+
+        res.variables.insert(
+            v,
+            VariableEffect {
+                expects: false,
+                defines: EffectCertainty::Always,
+            },
+        );
+        res
+    }
+
+    pub fn expects(v: String) -> Self {
+        let mut res = Self::default();
+
+        res.variables.insert(
+            v,
+            VariableEffect {
+                expects: true,
+                defines: EffectCertainty::Never,
+            },
+        );
+        res
+    }
+
+    pub fn serial(&mut self, right: &Self) {
+        right.variables.iter().for_each(|(name, right_effect)| {
+            if let Some(f) = self.variables.get_mut(name) {
+                f.serial(right_effect);
+            } else {
+                self.variables.insert(name.clone(), right_effect.clone());
+            }
+        });
+    }
+
+    pub fn parallel(&mut self, right: &Self) {
+        self.variables.iter_mut().for_each(|(name, f)| {
+            if let Some(right_effect) = right.variables.get(name) {
+                f.parallel(right_effect);
+            } else {
+                f.maybe();
+            }
+        });
+
+        right.variables.iter().for_each(|(name, f)| {
+            if !self.variables.contains_key(name) {
+                let mut s = f.clone();
+                s.maybe();
+                self.variables.insert(name.clone(), s);
+            }
+        });
+    }
+}
+
+#[derive(Clone, PartialEq, Default)]
 pub struct Arity {
     pub pops: Vec<Type>,
     pub pushes: Vec<ResultantType>,
+    pub captures: CaptureEffects,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -165,16 +279,29 @@ pub enum ArityCombineError {
 
 impl Arity {
     pub fn noop() -> Self {
+        Self::default()
+    }
+
+    pub fn capture(name: String) -> Self {
+        Self {
+            pops: vec![Type::Unknown],
+            pushes: vec![],
+            captures: CaptureEffects::defines(name),
+        }
+    }
+
+    pub fn recall(name: String) -> Self {
         Self {
             pops: vec![],
-            pushes: vec![],
+            pushes: vec![Type::Unknown.into()],
+            captures: CaptureEffects::expects(name),
         }
     }
 
     pub fn literal(r: Type) -> Self {
         Self {
-            pops: vec![],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -182,6 +309,7 @@ impl Arity {
         Self {
             pops: vec![a],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -189,13 +317,14 @@ impl Arity {
         Self {
             pops: vec![],
             pushes: vec![a.into(), b.into()],
+            ..Self::default()
         }
     }
 
     pub fn pop_two(a: Type, b: Type) -> Self {
         Self {
             pops: vec![b, a],
-            pushes: vec![],
+            ..Self::default()
         }
     }
 
@@ -203,6 +332,7 @@ impl Arity {
         Self {
             pops: vec![a, b],
             pushes: vec![r.into()],
+            ..Self::default()
         }
     }
 
@@ -279,7 +409,7 @@ impl Arity {
                 Ok(ResultantType::Dependent((self.pops.len() - 1).into()))
             }
             (Some(ResultantType::Dependent(i)), Type::Unknown) => Ok(ResultantType::Dependent(i)),
-            (Some(ResultantType::Dependent(i)), _) => {
+            (Some(ResultantType::Dependent(i)), term) => {
                 for x in i.iter() {
                     if term.assignable_to(self.pops[x]) {
                         for push in &mut self.pushes {
@@ -323,6 +453,8 @@ impl Arity {
             }
         });
 
+        running.captures.serial(&second.captures);
+
         Ok(running)
     }
 
@@ -341,8 +473,21 @@ impl Arity {
 
         for push in &self.pushes {
             res.push(' ');
-            res.push_str(&push.stringify());
+            res.push_str(&push.stringify(self));
         }
+
+        self.captures.variables.iter().for_each(|(name, defs)| {
+            res.push_str(", ");
+            if defs.expects {
+                res.push('>');
+            }
+            res.push_str(name);
+            match defs.defines {
+                EffectCertainty::Always => res.push('>'),
+                EffectCertainty::Sometimes => res.push('?'),
+                EffectCertainty::Never => {}
+            }
+        });
 
         res
     }
@@ -408,12 +553,16 @@ impl Arity {
             res.pushes.push(t.union(&right.pushes[i]));
         }
 
+        res.captures = left.captures.clone();
+        res.captures.parallel(&right.captures);
+
         Ok(res)
     }
 
     #[allow(dead_code)]
     pub fn parse(source: &str) -> Option<Self> {
-        let (pops, pushes) = source.split_once('-')?;
+        let mut comma_separated = source.split(',').map(str::trim);
+        let (pops, pushes) = comma_separated.next()?.split_once('-')?;
         let pops = pops
             .split(' ')
             .rev()
@@ -433,13 +582,42 @@ impl Arity {
                 Some(acc)
             })?;
 
-        Some(Self { pops, pushes })
+        let mut captures = CaptureEffects::default();
+
+        for mut section in comma_separated {
+            let expects = if section.starts_with('>') {
+                section = &section[1..];
+                true
+            } else {
+                false
+            };
+
+            let defines = if section.ends_with('?') {
+                section = &section[0..(section.len().saturating_sub(1))];
+                EffectCertainty::Sometimes
+            } else if section.ends_with('>') {
+                section = &section[0..(section.len().saturating_sub(1))];
+                EffectCertainty::Always
+            } else {
+                EffectCertainty::Never
+            };
+
+            captures
+                .variables
+                .insert(section.to_owned(), VariableEffect { expects, defines });
+        }
+
+        Some(Self {
+            pops,
+            pushes,
+            captures,
+        })
     }
 }
 
 impl std::fmt::Debug for Arity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", &self.stringify())
+        write!(f, "{}", self.stringify())
     }
 }
 
@@ -448,6 +626,7 @@ impl From<(Vec<Type>, Vec<Type>)> for Arity {
         Self {
             pops: value.0,
             pushes: value.1.into_iter().map(Into::into).collect(),
+            ..Self::default()
         }
     }
 }

@@ -12,6 +12,7 @@ pub enum WrappedExpression {
     Function,
     Loop,
     ImportNameList,
+    Capture,
 }
 
 #[derive(Debug, PartialEq)]
@@ -19,6 +20,7 @@ pub enum ParseSection {
     Condition,
     Branch,
     Loop,
+    Capture,
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,6 +45,7 @@ pub enum UnexpectedContext {
     ImportNameList,
     ImportNaming,
     ImportPath,
+    Capture,
 }
 
 #[derive(Debug, PartialEq)]
@@ -228,6 +231,8 @@ impl EndOfFileError {
         match self {
             Self::UnclosedExpression(expression, loc) => {
                 let (section, info) = match expression {
+                    WrappedExpression::Capture => ("capture", "Capture lists are closed using: )"),
+
                     WrappedExpression::Condition => ("condition", "Conditions are closed using: )"),
                     WrappedExpression::Branch => {
                         ("branch", "Branch statements are closed using: }")
@@ -296,6 +301,11 @@ impl UnexpectedError {
                     (context_start, loc),
                     "If a loop contains a post condition, it must be the last statement before the closing ]",
                 ),
+                UnexpectedContext::Capture => Details::full(
+                    "Unexpected expression in capture list",
+                    (context_start, loc),
+                    "Capture lists should include only names separated by spaces, such as: (val1 val2)",
+                ),
                 UnexpectedContext::ImportNameList => Details::full(
                     "Unexpected expression in import name list",
                     (context_start, loc),
@@ -322,6 +332,7 @@ impl UnexpectedError {
                     ParseSection::Condition => "condition",
                     ParseSection::Branch => "branch",
                     ParseSection::Loop => "loop",
+                    ParseSection::Capture => "capture list",
                 };
 
                 let message = format!("Unexpected {:?} in {section_name}", symbol);
@@ -335,6 +346,7 @@ impl UnexpectedError {
                         "The } symbol is only used to close branch or function blocks"
                     }
                     Symbol::ParenClose => "The ) symbol is only used to close condition blocks",
+                    Symbol::Tilde => "The ~ symbol is only used for capture lists",
                     Symbol::SquareClose => "The ] symbol is only used to close loops",
                     Symbol::Hash => "The # symbol can only be used at the top level for imports",
                     Symbol::CurlyOpen

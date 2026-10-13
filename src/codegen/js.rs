@@ -1,8 +1,5 @@
 use crate::{
-    codegen::{
-        context::{CodegenContext, CodegenResult, CodegenResultG},
-        target::CodegenTarget,
-    },
+    codegen::context::{CodegenContext, CodegenResult, CodegenResultG, ResolvedName},
     lang::{Block, Loop, Term},
     program::{NamespaceId, Program},
 };
@@ -36,12 +33,18 @@ fn codegen_term(ctx: &mut CodegenContext, term: &Term) -> CodegenResult {
         Term::Number(e) => ctx.target.write_line(&format!("push({})", e)),
         Term::Bool(true) => ctx.target.write_line("push(true)"),
         Term::Bool(false) => ctx.target.write_line("push(false)"),
+        Term::Capture(n, _) => {
+            let name = ctx.resolve_variable_name(n)?;
+            ctx.target
+                .write_line(&format!("var {name} = STATE.values.pop();"));
+        }
         Term::Address(name) => ctx
             .target
-            .write_line(&format!("push({})", ctx.resolve_name(name)?)),
-        Term::Name(n, _) => ctx
-            .target
-            .write_line(&format!("{}()", ctx.resolve_name(n)?)),
+            .write_line(&format!("push({})", ctx.resolve_function_name(name)?)),
+        Term::Name(n, _) => match ctx.resolve_name(n)? {
+            ResolvedName::Function(n) => ctx.target.write_line(&format!("{n}()")),
+            ResolvedName::Variable(n) => ctx.target.write_line(&format!("push({n})")),
+        },
         Term::Branch(branch) => {
             branch.arms.iter().try_for_each(|arm| -> CodegenResult {
                 codegen_block(ctx, &arm.0)?;
@@ -69,11 +72,13 @@ fn codegen_block(ctx: &mut CodegenContext, block: &Block) -> CodegenResult {
 }
 
 fn codegen_func(ctx: &mut CodegenContext, name: &str, body: &Block) -> CodegenResult {
+    ctx.load_vars(body);
     ctx.target.write_line(&format!("function {}() {{", name));
     ctx.target.increase_indent();
     codegen_block(ctx, body)?;
     ctx.target.decrease_indent();
     ctx.target.write_line("}");
+    ctx.clear_vars();
     Ok(())
 }
 
@@ -82,11 +87,7 @@ pub fn js_codegen_module(
     main_namespace: NamespaceId,
     main: &Block,
 ) -> CodegenResultG<String> {
-    let mut ctx = CodegenContext {
-        namespace: 0,
-        program,
-        target: CodegenTarget::default(),
-    };
+    let mut ctx = CodegenContext::new(program);
 
     ctx.target.write_line(DEFS);
 

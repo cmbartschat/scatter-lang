@@ -6,7 +6,7 @@ fn3: fn4
 STDOUT
 fn1: unbounded
 fn2: incompatible types
-fn3: not resolved
+fn3: undefined variable or function: fn4
 
 STDERR
 EXIT_CODE

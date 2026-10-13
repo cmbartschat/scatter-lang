@@ -9,6 +9,7 @@ pub enum Term {
     Name(String, SourceRange),
     Branch(Branch),
     Loop(Loop),
+    Capture(String, SourceRange),
 }
 
 impl PartialEq for Term {
@@ -18,7 +19,8 @@ impl PartialEq for Term {
             (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0))
             | (Self::Address(l0), Self::Address(r0))
-            | (Self::Name(l0, _), Self::Name(r0, _)) => l0 == r0,
+            | (Self::Name(l0, _), Self::Name(r0, _))
+            | (Self::Capture(l0, _), Self::Capture(r0, _)) => l0 == r0,
             (Self::Branch(l0), Self::Branch(r0)) => l0 == r0,
             (Self::Loop(l0), Self::Loop(r0)) => l0 == r0,
             _ => false,

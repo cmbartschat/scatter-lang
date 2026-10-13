@@ -1,0 +1,26 @@
+-a
+STDIN
+fn1: ~a~ a a *
+fn2: dup ~a~ ~b~ a ++ print b
+fn3: v
+fn4: ~a~ {(a 0 >) "positive" ~a~ (1) "negative" ~a~} 0 1 substring
+fn5: 5 ~a~ 10 a +
+fn6: {{() 5 ~a~ (1) "5" ~a~} a}
+fn7: a ~a~
+fn8: a 1 ~a~
+fn9: ~a~ a to_char
+
+STDOUT
+fn1: incompatible types
+fn2: incompatible types
+fn3: undefined variable or function: v
+fn4: incompatible types
+fn5: incompatible types
+fn6: u - u
+fn7: undefined variable or function: a
+fn8: undefined variable or function: a
+fn9: incompatible types
+
+STDERR
+EXIT_CODE
+0
