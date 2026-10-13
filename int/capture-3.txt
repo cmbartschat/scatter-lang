@@ -1,7 +1,7 @@
 -a
 STDIN
 fn1: ~a~ a a *
-fn2: dup ~a~ ~b~ a ++ print b 
+fn2: dup ~a~ ~b~ a ++ print b
 fn3: v
 fn4: ~a~ {(a 0 >) "positive" ~a~ (1) "negative" ~a~} 0 1 substring
 fn5: 5 ~a~ 10 a +
